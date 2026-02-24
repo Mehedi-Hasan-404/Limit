@@ -11,7 +11,7 @@ import com.livetvpro.app.data.local.entity.PlaylistEntity
 
 @Database(
     entities = [FavoriteChannelEntity::class, PlaylistEntity::class],
-    version = 4,  // Incremented version for new entity
+    version = 1,  
     exportSchema = false
 )
 @TypeConverters(FavoriteChannelConverters::class)
