@@ -300,7 +300,6 @@ class FloatingPlayerService : Service() {
             val streamName = intent?.getStringExtra("CHANNEL_NAME") ?: "Network Stream"
 
             if (isRestoredFromFullscreen && PlayerHolder.player != null) {
-                // Player was transferred from FloatingPlayerActivity — reuse it directly
                 createFloatingPlayerInstanceFromNetworkStreamTransfer(
                     instanceId, streamName, streamUrl, cookie, referer, origin, drmLicense, userAgent, drmScheme
                 )
@@ -417,8 +416,6 @@ class FloatingPlayerService : Service() {
                 y = initialY
             }
 
-            // Pipe-encode all DRM/header fields from the resolved link so parseStreamUrl()
-            // handles clearkey (key:id), clearkey (JWK), widevine, playready uniformly.
             val resolvedPipeUrl2: String = when {
                 channel != null -> {
                     val links = channel.links
@@ -610,7 +607,6 @@ class FloatingPlayerService : Service() {
         try {
             val transferredPlayer = PlayerHolder.player
             if (transferredPlayer == null) {
-                // Fallback: create a fresh player if the transfer was lost
                 createFloatingPlayerInstanceForNetworkStream(
                     instanceId, streamUrl, cookie, referer, origin, drmLicense, userAgent, drmScheme, streamName
                 )
@@ -775,7 +771,6 @@ class FloatingPlayerService : Service() {
                 .setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
 
-            // Build a StreamInfo from the individual DRM fields so we can use the shared DRM builder
             val nsStreamInfo = buildStreamInfoFromDrmFields(streamUrl, headers, drmScheme, drmLicense)
             val nsMediaSourceFactory = buildDrmMediaSourceFactory(nsStreamInfo, nsDataSourceFactory, headers)
 
@@ -847,7 +842,6 @@ class FloatingPlayerService : Service() {
         val instance = activeInstances[instanceId] ?: return
 
         try {
-            // Resolve link and pipe-encode DRM/headers for both channel and event
             val resolvedPipeUrl: String = when {
                 channel != null -> {
                     val sel = if (!channel.links.isNullOrEmpty()) {
@@ -1165,6 +1159,9 @@ class FloatingPlayerService : Service() {
                                 } else {
                                     showUnlockButton(instanceId)
                                 }
+                            } else {
+                                preferencesManager.setFloatingPlayerX(p.x)
+                                preferencesManager.setFloatingPlayerY(p.y)
                             }
                             isDragging = false
                             hasMoved = false
@@ -1209,6 +1206,9 @@ class FloatingPlayerService : Service() {
                                 } else {
                                     playerView.showController()
                                 }
+                            } else {
+                                preferencesManager.setFloatingPlayerX(p.x)
+                                preferencesManager.setFloatingPlayerY(p.y)
                             }
                             val wasMoving = hasMoved
                             isDragging = false
@@ -1366,6 +1366,10 @@ class FloatingPlayerService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         stopAllInstances()
+        preferencesManager.setFloatingPlayerWidth(0)
+        preferencesManager.setFloatingPlayerHeight(0)
+        preferencesManager.setFloatingPlayerX(Int.MIN_VALUE)
+        preferencesManager.setFloatingPlayerY(Int.MIN_VALUE)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -1409,8 +1413,8 @@ class FloatingPlayerService : Service() {
             for (segment in streamUrl.substring(pipeIndex + 1).split("|")) {
                 val eqIdx = segment.indexOf('=')
                 val value = if (eqIdx != -1) segment.substring(eqIdx + 1) else ""
-                if (value.startsWith("http://", ignoreCase = true) ||
-                    value.startsWith("https://", ignoreCase = true)) {
+                if (value.startsWith("http:
+                    value.startsWith("https:
                     add(segment)
                 } else {
                     addAll(segment.split("&"))
@@ -1431,9 +1435,9 @@ class FloatingPlayerService : Service() {
             when (key.lowercase()) {
                 "drmscheme" -> drmScheme = normalizeDrmScheme(value)
                 "drmlicense" -> when {
-                    value.startsWith("http://", ignoreCase = true) ||
-                    value.startsWith("https://", ignoreCase = true) -> drmLicenseUrl = value
-                    value.trimStart().startsWith("{") -> drmLicenseUrl = value   // raw JWK JSON
+                    value.startsWith("http:
+                    value.startsWith("https:
+                    value.trimStart().startsWith("{") -> drmLicenseUrl = value
                     else -> {
                         val colonIndex = value.indexOf(':')
                         if (colonIndex != -1) {
@@ -1464,8 +1468,8 @@ class FloatingPlayerService : Service() {
         return when {
             drmLicense.trimStart().startsWith("{") ->
                 StreamInfo(url, headers, scheme, null, null, drmLicense)
-            drmLicense.startsWith("http://", ignoreCase = true) ||
-            drmLicense.startsWith("https://", ignoreCase = true) ->
+            drmLicense.startsWith("http:
+            drmLicense.startsWith("https:
                 StreamInfo(url, headers, scheme, null, null, drmLicense)
             drmLicense.contains(':') -> {
                 val i = drmLicense.indexOf(':')
@@ -1576,9 +1580,6 @@ class FloatingPlayerService : Service() {
         dataSourceFactory: DefaultHttpDataSource.Factory,
         headers: Map<String, String>
     ): DefaultMediaSourceFactory {
-        // Widevine and PlayReady are handled via MediaItem.DrmConfiguration in buildDrmMediaItem
-        // (with forceDefaultLicenseUri so IPTV streams without a license URL in their manifest work).
-        // Only ClearKey needs a DrmSessionManagerProvider because media3 doesn't handle it natively.
         val clearKeyMgr = when {
             streamInfo.drmScheme != "clearkey" -> null
             streamInfo.drmKeyId != null && streamInfo.drmKey != null ->
@@ -1604,14 +1605,10 @@ class FloatingPlayerService : Service() {
             streamInfo.url.contains("extension=m3u8", ignoreCase = true)) {
             builder.setMimeType(MimeTypes.APPLICATION_M3U8)
         }
-        // Widevine and PlayReady: use MediaItem.DrmConfiguration with forceDefaultLicenseUri(true)
-        // so ExoPlayer uses our license URL even when the MPD manifest doesn't contain one.
-        // License request headers are set separately from stream headers.
         if (streamInfo.drmScheme == "widevine" || streamInfo.drmScheme == "playready") {
             streamInfo.drmLicenseUrl?.let { licUrl ->
                 val uuid = if (streamInfo.drmScheme == "widevine") C.WIDEVINE_UUID else C.PLAYREADY_UUID
                 val licenseHeaders = headers.filter { (k, _) ->
-                    // Pass all custom headers to the license server too
                     k != "Referer" && k != "Origin"
                 }
                 builder.setDrmConfiguration(
