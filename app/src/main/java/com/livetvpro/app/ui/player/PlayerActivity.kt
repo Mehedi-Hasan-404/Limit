@@ -179,7 +179,6 @@ class PlayerActivity : AppCompatActivity() {
                 selectedGroup?.let { putExtra(EXTRA_SELECTED_GROUP, it) }
                 putExtra(EXTRA_IS_SPORTS, isSports)
                 addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
-                if (isInPip) addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             context.startActivity(intent)
             if (context is android.app.Activity) {
@@ -192,7 +191,6 @@ class PlayerActivity : AppCompatActivity() {
                 putExtra(EXTRA_EVENT, event as Parcelable)
                 putExtra(EXTRA_SELECTED_LINK_INDEX, linkIndex)
                 addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
-                if (isInPip) addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             context.startActivity(intent)
             if (context is android.app.Activity) {
@@ -204,12 +202,6 @@ class PlayerActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-
-        // If we're in PiP, expand back to full screen then switch content
-        if (isInPipMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val am = getSystemService(android.app.ActivityManager::class.java)
-            am?.moveTaskToFront(taskId, 0)
-        }
 
         // Parse and switch to the new channel/event from the intent
         val newChannel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
