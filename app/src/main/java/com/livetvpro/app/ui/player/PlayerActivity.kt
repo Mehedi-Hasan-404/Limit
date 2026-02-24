@@ -500,8 +500,9 @@ class PlayerActivity : AppCompatActivity() {
 
         if (player == null) {
             setupPlayer()
-            binding.playerView.onResume()
         }
+        binding.playerView.onResume()
+        player?.play()
     }
 
     override fun onPictureInPictureModeChanged(
@@ -1213,7 +1214,10 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        releasePlayer()
+        val isPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode
+        if (!isPip) {
+            releasePlayer()
+        }
     }
 
     override fun onDestroy() {
