@@ -107,8 +107,7 @@ class MainActivity : AppCompatActivity() {
                 val topLevelDestinations = setOf(
                     R.id.homeFragment,
                     R.id.liveEventsFragment,
-                    R.id.sportsFragment,
-                    R.id.favoritesFragment
+                    R.id.sportsFragment
                 )
                 val isTopLevel = currentDestId in topLevelDestinations
 
@@ -282,8 +281,7 @@ class MainActivity : AppCompatActivity() {
         val topLevelDestinations = setOf(
             R.id.homeFragment,
             R.id.liveEventsFragment,
-            R.id.sportsFragment,
-            R.id.favoritesFragment
+            R.id.sportsFragment
         )
 
         navigationView?.setNavigationItemSelectedListener { menuItem ->
