@@ -61,14 +61,21 @@ object FloatingPlayerHelper {
 
         if (existingInstanceId != null && FloatingPlayerManager.hasPlayer(existingInstanceId)) {
             updateFloatingPlayer(context, existingInstanceId, resolvedChannel, linkIndex)
-        } else {
+        } else if (FloatingPlayerManager.canAddNewPlayer()) {
             createNewFloatingPlayer(context, channel = resolvedChannel, linkIndex = linkIndex, eventId = actualEventId)
+        } else {
+            val lastId = FloatingPlayerManager.getLastPlayerId()
+            if (lastId != null) {
+                val oldEventKey = eventToInstanceMap.entries.find { it.value == lastId }?.key
+                if (oldEventKey != null) eventToInstanceMap.remove(oldEventKey)
+                eventToInstanceMap[actualEventId] = lastId
+                updateFloatingPlayer(context, lastId, resolvedChannel, linkIndex)
+            }
         }
     }
 
     fun launchFloatingPlayerWithEvent(context: Context, channel: Channel, event: LiveEvent, linkIndex: Int = 0) {
         if (!hasOverlayPermission(context)) return
-        // On TV launch FloatingPlayerActivity directly
         if (DeviceUtils.isTvDevice) {
             FloatingPlayerActivity.startWithChannel(context, channel, linkIndex)
             return
@@ -80,8 +87,16 @@ object FloatingPlayerHelper {
 
         if (existingInstanceId != null && FloatingPlayerManager.hasPlayer(existingInstanceId)) {
             updateFloatingPlayer(context, existingInstanceId, channel, linkIndex)
-        } else {
+        } else if (FloatingPlayerManager.canAddNewPlayer()) {
             createNewFloatingPlayer(context, channel = channel, event = event, linkIndex = linkIndex, eventId = event.id)
+        } else {
+            val lastId = FloatingPlayerManager.getLastPlayerId()
+            if (lastId != null) {
+                val oldEventKey = eventToInstanceMap.entries.find { it.value == lastId }?.key
+                if (oldEventKey != null) eventToInstanceMap.remove(oldEventKey)
+                eventToInstanceMap[event.id] = lastId
+                updateFloatingPlayer(context, lastId, channel, linkIndex)
+            }
         }
     }
 
@@ -96,7 +111,6 @@ object FloatingPlayerHelper {
         drmScheme: String = "clearkey",
         streamName: String = "Network Stream"
     ): String? {
-        // On TV launch FloatingPlayerActivity directly
         if (DeviceUtils.isTvDevice) {
             FloatingPlayerActivity.startWithNetworkStream(context, streamUrl, cookie, referer, origin, drmLicense, userAgent, drmScheme, streamName)
             return null
@@ -228,8 +242,8 @@ object FloatingPlayerHelper {
      * fields correctly populated. Used when an M3U channel has no explicit links list.
      *
      * Example input:
-     *   "https://....mpd|drmScheme=clearkey|drmLicense=de8045e9:6807bd09"
-     * Produces ChannelLink with url="https://....mpd", drmScheme="clearkey",
+     *   "https:
+     * Produces ChannelLink with url="https:
      *   drmLicenseUrl="de8045e9:6807bd09"
      */
     private fun parseLinkFromStreamUrl(streamUrl: String): ChannelLink {
@@ -254,7 +268,7 @@ object FloatingPlayerHelper {
             val value = part.substring(eq + 1).trim()
             when (key) {
                 "drmscheme" -> drmScheme = value
-                "drmlicense" -> drmLicenseUrl = value   // keep raw; FloatingPlayerService will decode it
+                "drmlicense" -> drmLicenseUrl = value
                 "cookie" -> cookie = value
                 "referer", "referrer" -> referer = value
                 "origin" -> origin = value
