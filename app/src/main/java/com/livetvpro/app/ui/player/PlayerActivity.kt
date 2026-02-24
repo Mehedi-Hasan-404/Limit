@@ -522,7 +522,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
-            setPictureInPictureParams(updatePipParams())
+            setPictureInPictureParams(createPipParams())
         }
     }
 
@@ -542,7 +542,6 @@ class PlayerActivity : AppCompatActivity() {
         newConfig: Configuration
     ) {
         if (!isInPictureInPictureMode) {
-
             pipReceiver?.let {
                 unregisterReceiver(it)
                 pipReceiver = null
@@ -569,7 +568,7 @@ class PlayerActivity : AppCompatActivity() {
         isInPip = true
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            setPictureInPictureParams(updatePipParams(enter = true))
+            setPictureInPictureParams(createPipParams())
         }
 
         controlsState.hide()
@@ -613,10 +612,13 @@ class PlayerActivity : AppCompatActivity() {
 
     @SuppressLint("NewApi")
     override fun onUserLeaveHint() {
-        if (!DeviceUtils.isTvDevice && isPipSupported && player?.isPlaying == true) {
+        if (!DeviceUtils.isTvDevice && isPipSupported &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            player?.isPlaying == true
+        ) {
             isEnteringPip = true
             wasLockedBeforePip = controlsState.isLocked
-            enterPictureInPictureMode(updatePipParams(enter = true))
+            enterPictureInPictureMode(createPipParams())
         }
         super.onUserLeaveHint()
     }
@@ -741,7 +743,7 @@ class PlayerActivity : AppCompatActivity() {
                             onPipClick = {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                     wasLockedBeforePip = controlsState.isLocked
-                                    enterPictureInPictureMode(updatePipParams(enter = true))
+                                    enterPictureInPictureMode(createPipParams())
                                 }
                             },
                             onSettingsClick = { showSettingsDialog() },
@@ -1453,7 +1455,9 @@ class PlayerActivity : AppCompatActivity() {
                                 Player.STATE_READY -> {
                                     binding.progressBar.visibility = View.GONE
                                     binding.errorView.visibility = View.GONE
-                                    updatePipParams()
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
+                                        setPictureInPictureParams(createPipParams())
+                                    }
                                 }
                                 Player.STATE_BUFFERING -> {
                                     binding.progressBar.visibility = View.VISIBLE
@@ -1468,18 +1472,16 @@ class PlayerActivity : AppCompatActivity() {
                         }
 
                         override fun onIsPlayingChanged(isPlaying: Boolean) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPipMode) {
-                                setPictureInPictureParams(updatePipParams(enter = false))
-                            }
-
-                            if (isInPipMode) {
-                                updatePipParams()
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
+                                setPictureInPictureParams(createPipParams())
                             }
                         }
 
                         override fun onVideoSizeChanged(videoSize: VideoSize) {
                             super.onVideoSizeChanged(videoSize)
-                            updatePipParams()
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
+                                setPictureInPictureParams(createPipParams())
+                            }
                         }
 
                         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -1785,7 +1787,9 @@ class PlayerActivity : AppCompatActivity() {
     private fun enterPipMode() {
         binding.playerView.useController = false
         setSubtitleTextSizePiP()
-        updatePipParams(enter = true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            setPictureInPictureParams(createPipParams())
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -1805,7 +1809,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun setupPipReceiver() {
         pipReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action != ACTION_MEDIA_CONTROL) return
+                if (intent == null || intent.action != ACTION_MEDIA_CONTROL) return
                 val currentPlayer = player ?: return
                 val hasError = binding.errorView.visibility == View.VISIBLE
                 val hasEnded = currentPlayer.playbackState == Player.STATE_ENDED
@@ -1816,9 +1820,8 @@ class PlayerActivity : AppCompatActivity() {
                         } else {
                             currentPlayer.play()
                         }
-
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            updatePipParams()
+                            setPictureInPictureParams(createPipParams())
                         }
                     }
                     CONTROL_TYPE_PAUSE -> {
@@ -1827,9 +1830,8 @@ class PlayerActivity : AppCompatActivity() {
                         } else {
                             currentPlayer.pause()
                         }
-
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            updatePipParams()
+                            setPictureInPictureParams(createPipParams())
                         }
                     }
                     CONTROL_TYPE_REWIND -> {
@@ -1860,7 +1862,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun updatePipParams(enter: Boolean = false): PictureInPictureParams {
+    fun createPipParams(): PictureInPictureParams {
         val builder = PictureInPictureParams.Builder()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -1897,7 +1899,7 @@ class PlayerActivity : AppCompatActivity() {
 
         actions.add(RemoteAction(
             Icon.createWithResource(context, R.drawable.ic_skip_backward),
-            "Rewind", "Rewind 10s",
+            context.getString(R.string.rewind), context.getString(R.string.rewind_10s),
             PendingIntent.getBroadcast(context, CONTROL_TYPE_REWIND,
                 Intent(ACTION_MEDIA_CONTROL).setPackage(context.packageName)
                     .putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_REWIND),
@@ -1926,7 +1928,7 @@ class PlayerActivity : AppCompatActivity() {
 
         actions.add(RemoteAction(
             Icon.createWithResource(context, R.drawable.ic_skip_forward),
-            "Forward", "Forward 10s",
+            context.getString(R.string.forward), context.getString(R.string.forward_10s),
             PendingIntent.getBroadcast(context, CONTROL_TYPE_FORWARD,
                 Intent(ACTION_MEDIA_CONTROL).setPackage(context.packageName)
                     .putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_FORWARD),
