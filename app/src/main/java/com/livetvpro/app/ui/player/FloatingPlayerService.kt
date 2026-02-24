@@ -256,8 +256,16 @@ class FloatingPlayerService : Service() {
                     @Suppress("DEPRECATION")
                     intent.getParcelableExtra(EXTRA_CHANNEL)
                 }
+                val event = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(EXTRA_EVENT, com.livetvpro.app.data.models.LiveEvent::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra<com.livetvpro.app.data.models.LiveEvent>(EXTRA_EVENT)
+                }
                 val linkIndex = intent.getIntExtra(EXTRA_LINK_INDEX, 0)
-                if (instanceId != null && channel != null) updateInstanceStream(instanceId, channel, linkIndex)
+                if (instanceId != null && (channel != null || event != null)) {
+                    updateInstanceStream(instanceId, channel, event, linkIndex)
+                }
                 return START_STICKY
             }
             ACTION_HIDE_OTHERS -> {
@@ -409,40 +417,30 @@ class FloatingPlayerService : Service() {
                 y = initialY
             }
 
-            val selectedLinkForHeaders: com.livetvpro.app.data.models.ChannelLink? = when {
+            // Pipe-encode all DRM/header fields from the resolved link so parseStreamUrl()
+            // handles clearkey (key:id), clearkey (JWK), widevine, playready uniformly.
+            val resolvedPipeUrl2: String = when {
                 channel != null -> {
                     val links = channel.links
-                    if (links != null && linkIndex in links.indices) links[linkIndex] else links?.firstOrNull()
+                    val sel = if (links != null && linkIndex in links.indices) links[linkIndex] else links?.firstOrNull()
+                    if (sel != null) buildLinkPipeUrl(sel.url, sel.cookie, sel.referer, sel.origin, sel.userAgent, sel.drmScheme, sel.drmLicenseUrl)
+                    else streamUrl
                 }
-                else -> null
+                event != null -> {
+                    val links = event.links
+                    val sel = if (linkIndex in links.indices) links[linkIndex] else links.firstOrNull()
+                    if (sel != null) buildLinkPipeUrl(sel.url, sel.cookie, sel.referer, sel.origin, sel.userAgent, sel.drmScheme, sel.drmLicenseUrl)
+                    else streamUrl
+                }
+                else -> streamUrl
             }
-            val parsedStream = parseStreamUrl(streamUrl)
+            val parsedStream = parseStreamUrl(resolvedPipeUrl2)
             val actualUrl = parsedStream.url
-            val headers = mutableMapOf<String, String>()
-            selectedLinkForHeaders?.let { link ->
-                link.referer?.takeIf { it.isNotEmpty() }?.let { headers["Referer"] = it }
-                link.cookie?.takeIf { it.isNotEmpty() }?.let { headers["Cookie"] = it }
-                link.origin?.takeIf { it.isNotEmpty() }?.let { headers["Origin"] = it }
-                link.userAgent?.takeIf { it.isNotEmpty() }?.let { headers["User-Agent"] = it }
-            }
-            parsedStream.headers.forEach { (k, v) -> headers.putIfAbsent(k, v) }
+            val headers = parsedStream.headers.toMutableMap()
             if (!headers.containsKey("User-Agent")) {
                 headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
-
-            // Merge DRM: prefer parsed pipe-URL DRM, fall back to ChannelLink DRM fields
-            val effectiveDrmScheme = parsedStream.drmScheme
-                ?: selectedLinkForHeaders?.drmScheme?.takeIf { it.isNotEmpty() }
-            val effectiveDrmLicenseUrl = parsedStream.drmLicenseUrl
-                ?: selectedLinkForHeaders?.drmLicenseUrl?.takeIf { it.isNotEmpty() }
-            val effectiveStreamInfo = if (effectiveDrmScheme != null &&
-                (parsedStream.drmKeyId != null || effectiveDrmLicenseUrl != null)) {
-                parsedStream.copy(drmScheme = effectiveDrmScheme, drmLicenseUrl = effectiveDrmLicenseUrl)
-            } else if (effectiveDrmScheme != null && effectiveDrmLicenseUrl != null) {
-                buildStreamInfoFromDrmFields(actualUrl, headers, effectiveDrmScheme, effectiveDrmLicenseUrl)
-            } else {
-                parsedStream
-            }
+            val effectiveStreamInfo = parsedStream
             val dataSourceFactory = DefaultHttpDataSource.Factory()
                 .setUserAgent(headers["User-Agent"] ?: "LiveTVPro/1.0")
                 .setDefaultRequestProperties(headers)
@@ -461,7 +459,7 @@ class FloatingPlayerService : Service() {
             val playerView = floatingView.findViewById<PlayerView>(R.id.player_view)
             playerView.player = player
 
-            val mediaItem = buildDrmMediaItem(effectiveStreamInfo)
+            val mediaItem = buildDrmMediaItem(effectiveStreamInfo, headers)
             player.setMediaItem(mediaItem)
             player.prepare()
             player.playWhenReady = true
@@ -790,7 +788,7 @@ class FloatingPlayerService : Service() {
                 .setMediaSourceFactory(nsMediaSourceFactory)
                 .build()
 
-            val nsMediaItem = buildDrmMediaItem(nsStreamInfo)
+            val nsMediaItem = buildDrmMediaItem(nsStreamInfo, headers)
             player.setMediaItem(nsMediaItem)
             player.prepare()
             player.playWhenReady = true
@@ -840,43 +838,40 @@ class FloatingPlayerService : Service() {
         }
     }
 
-    private fun updateInstanceStream(instanceId: String, channel: Channel, linkIndex: Int) {
+    private fun updateInstanceStream(
+        instanceId: String,
+        channel: Channel? = null,
+        event: com.livetvpro.app.data.models.LiveEvent? = null,
+        linkIndex: Int
+    ) {
         val instance = activeInstances[instanceId] ?: return
 
         try {
-            val selectedLink = if (!channel.links.isNullOrEmpty()) {
-                if (linkIndex in channel.links!!.indices) channel.links!![linkIndex]
-                else channel.links!!.firstOrNull()
-            } else null
-
-            val rawUrl = selectedLink?.url ?: channel.streamUrl
-            if (rawUrl.isBlank()) return
-
-            val parsedStream = parseStreamUrl(rawUrl)
-            val actualUrl = parsedStream.url
-            val headers = mutableMapOf<String, String>()
-            selectedLink?.let { link ->
-                link.referer?.takeIf { it.isNotEmpty() }?.let { headers["Referer"] = it }
-                link.cookie?.takeIf { it.isNotEmpty() }?.let { headers["Cookie"] = it }
-                link.origin?.takeIf { it.isNotEmpty() }?.let { headers["Origin"] = it }
-                link.userAgent?.takeIf { it.isNotEmpty() }?.let { headers["User-Agent"] = it }
+            // Resolve link and pipe-encode DRM/headers for both channel and event
+            val resolvedPipeUrl: String = when {
+                channel != null -> {
+                    val sel = if (!channel.links.isNullOrEmpty()) {
+                        if (linkIndex in channel.links!!.indices) channel.links!![linkIndex]
+                        else channel.links!!.firstOrNull()
+                    } else null
+                    if (sel != null) buildLinkPipeUrl(sel.url, sel.cookie, sel.referer, sel.origin, sel.userAgent, sel.drmScheme, sel.drmLicenseUrl)
+                    else channel.streamUrl.takeIf { it.isNotBlank() } ?: return
+                }
+                event != null -> {
+                    val links = event.links
+                    if (links.isEmpty()) return
+                    val sel = if (linkIndex in links.indices) links[linkIndex] else links.firstOrNull() ?: return
+                    buildLinkPipeUrl(sel.url, sel.cookie, sel.referer, sel.origin, sel.userAgent, sel.drmScheme, sel.drmLicenseUrl)
+                }
+                else -> return
             }
-            parsedStream.headers.forEach { (k, v) -> headers.putIfAbsent(k, v) }
+
+            if (resolvedPipeUrl.isBlank()) return
+
+            val parsedStream = parseStreamUrl(resolvedPipeUrl)
+            val headers = parsedStream.headers.toMutableMap()
             if (!headers.containsKey("User-Agent")) {
                 headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
-
-            val effectiveDrmScheme = parsedStream.drmScheme
-                ?: selectedLink?.drmScheme?.takeIf { it.isNotEmpty() }
-            val effectiveDrmLicenseUrl = parsedStream.drmLicenseUrl
-                ?: selectedLink?.drmLicenseUrl?.takeIf { it.isNotEmpty() }
-            val effectiveStreamInfo = if (effectiveDrmScheme != null &&
-                (parsedStream.drmKeyId != null || effectiveDrmLicenseUrl != null)) {
-                parsedStream.copy(drmScheme = effectiveDrmScheme, drmLicenseUrl = effectiveDrmLicenseUrl)
-            } else if (effectiveDrmScheme != null && effectiveDrmLicenseUrl != null) {
-                buildStreamInfoFromDrmFields(actualUrl, headers, effectiveDrmScheme, effectiveDrmLicenseUrl)
-            } else {
-                parsedStream
             }
 
             val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -885,17 +880,18 @@ class FloatingPlayerService : Service() {
                 .setConnectTimeoutMs(30000)
                 .setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
-            val mediaSourceFactory = buildDrmMediaSourceFactory(effectiveStreamInfo, dataSourceFactory, headers)
+            val mediaSourceFactory = buildDrmMediaSourceFactory(parsedStream, dataSourceFactory, headers)
 
             instance.currentChannel = channel
+            instance.currentEvent = event
 
             val titleText = instance.floatingView.findViewById<TextView>(R.id.tv_title)
-            titleText.text = channel.name
+            titleText.text = channel?.name ?: event?.title ?: "Unknown"
 
             instance.player.stop()
             instance.player.clearMediaItems()
 
-            val mediaItem = buildDrmMediaItem(effectiveStreamInfo)
+            val mediaItem = buildDrmMediaItem(parsedStream, headers)
             instance.player.setMediaItem(mediaItem)
             instance.player.prepare()
             instance.player.playWhenReady = true
@@ -1383,6 +1379,27 @@ class FloatingPlayerService : Service() {
         val drmLicenseUrl: String?
     )
 
+    /** Pipe-encodes a link's DRM and header fields into the URL string, matching
+     *  PlayerActivity.buildStreamUrl(). parseStreamUrl() then decodes everything uniformly. */
+    private fun buildLinkPipeUrl(
+        url: String,
+        cookie: String?,
+        referer: String?,
+        origin: String?,
+        userAgent: String?,
+        drmScheme: String?,
+        drmLicenseUrl: String?
+    ): String {
+        val params = mutableListOf<String>()
+        referer?.takeIf { it.isNotEmpty() }?.let { params.add("referer=$it") }
+        cookie?.takeIf { it.isNotEmpty() }?.let { params.add("cookie=$it") }
+        origin?.takeIf { it.isNotEmpty() }?.let { params.add("origin=$it") }
+        userAgent?.takeIf { it.isNotEmpty() }?.let { params.add("user-agent=$it") }
+        drmScheme?.takeIf { it.isNotEmpty() }?.let { params.add("drmScheme=$it") }
+        drmLicenseUrl?.takeIf { it.isNotEmpty() }?.let { params.add("drmLicense=$it") }
+        return if (params.isNotEmpty()) "$url|${params.joinToString("|")}" else url
+    }
+
     private fun parseStreamUrl(streamUrl: String): StreamInfo {
         val pipeIndex = streamUrl.indexOf('|')
         if (pipeIndex == -1) return StreamInfo(streamUrl, mapOf(), null, null, null, null)
@@ -1478,6 +1495,27 @@ class FloatingPlayerService : Service() {
         } catch (e: Exception) { ByteArray(0) }
     }
 
+
+    /** ClearKey via HTTP license server (e.g. Shaka, Axinom in clearkey mode).
+     *  Uses the W3C ClearKey UUID with an HTTP callback instead of inline keys. */
+    private fun createClearKeyServerDrmManager(licenseUrl: String, headers: Map<String, String>): DefaultDrmSessionManager? {
+        return try {
+            val clearKeyUuid = java.util.UUID.fromString("e2719d58-a985-b3c9-781a-b030af78d30e")
+            val factory = DefaultHttpDataSource.Factory()
+                .setUserAgent(headers["User-Agent"] ?: "LiveTVPro/1.0")
+                .setDefaultRequestProperties(headers)
+                .setConnectTimeoutMs(30000)
+                .setReadTimeoutMs(30000)
+                .setAllowCrossProtocolRedirects(true)
+            val cb = HttpMediaDrmCallback(licenseUrl, factory)
+            headers.forEach { (k, v) -> cb.setKeyRequestProperty(k, v) }
+            DefaultDrmSessionManager.Builder()
+                .setUuidAndExoMediaDrmProvider(clearKeyUuid, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                .setMultiSession(false)
+                .build(cb)
+        } catch (e: Exception) { null }
+    }
+
     private fun createClearKeyDrmManager(keyIdHex: String, keyHex: String): DefaultDrmSessionManager? {
         return try {
             val uuid = UUID.fromString("e2719d58-a985-b3c9-781a-b030af78d30e")
@@ -1538,39 +1576,50 @@ class FloatingPlayerService : Service() {
         dataSourceFactory: DefaultHttpDataSource.Factory,
         headers: Map<String, String>
     ): DefaultMediaSourceFactory {
-        val mgr = when (streamInfo.drmScheme) {
-            "clearkey" -> when {
-                streamInfo.drmKeyId != null && streamInfo.drmKey != null ->
-                    createClearKeyDrmManager(streamInfo.drmKeyId, streamInfo.drmKey)
-                streamInfo.drmLicenseUrl?.trimStart()?.startsWith("{") == true ->
-                    createClearKeyDrmManagerFromJwk(streamInfo.drmLicenseUrl)
-                else -> null
-            }
-            "widevine" -> streamInfo.drmLicenseUrl?.let { createWidevineDrmManager(it, headers) }
-            "playready" -> streamInfo.drmLicenseUrl?.let { createPlayReadyDrmManager(it, headers) }
+        // Widevine and PlayReady are handled via MediaItem.DrmConfiguration in buildDrmMediaItem
+        // (with forceDefaultLicenseUri so IPTV streams without a license URL in their manifest work).
+        // Only ClearKey needs a DrmSessionManagerProvider because media3 doesn't handle it natively.
+        val clearKeyMgr = when {
+            streamInfo.drmScheme != "clearkey" -> null
+            streamInfo.drmKeyId != null && streamInfo.drmKey != null ->
+                createClearKeyDrmManager(streamInfo.drmKeyId, streamInfo.drmKey)
+            streamInfo.drmLicenseUrl?.trimStart()?.startsWith("{") == true ->
+                createClearKeyDrmManagerFromJwk(streamInfo.drmLicenseUrl)
+            streamInfo.drmLicenseUrl?.startsWith("http", ignoreCase = true) == true ->
+                createClearKeyServerDrmManager(streamInfo.drmLicenseUrl, headers)
             else -> null
         }
-        return if (mgr != null) {
+        return if (clearKeyMgr != null) {
             DefaultMediaSourceFactory(this)
                 .setDataSourceFactory(dataSourceFactory)
-                .setDrmSessionManagerProvider { mgr }
+                .setDrmSessionManagerProvider { clearKeyMgr }
         } else {
             DefaultMediaSourceFactory(this).setDataSourceFactory(dataSourceFactory)
         }
     }
 
-    private fun buildDrmMediaItem(streamInfo: StreamInfo): MediaItem {
+    private fun buildDrmMediaItem(streamInfo: StreamInfo, headers: Map<String, String>): MediaItem {
         val builder = MediaItem.Builder().setUri(streamInfo.url)
         if (streamInfo.url.contains("m3u8", ignoreCase = true) ||
             streamInfo.url.contains("extension=m3u8", ignoreCase = true)) {
             builder.setMimeType(MimeTypes.APPLICATION_M3U8)
         }
-        // For Widevine/PlayReady set DrmConfiguration on MediaItem too
+        // Widevine and PlayReady: use MediaItem.DrmConfiguration with forceDefaultLicenseUri(true)
+        // so ExoPlayer uses our license URL even when the MPD manifest doesn't contain one.
+        // License request headers are set separately from stream headers.
         if (streamInfo.drmScheme == "widevine" || streamInfo.drmScheme == "playready") {
             streamInfo.drmLicenseUrl?.let { licUrl ->
                 val uuid = if (streamInfo.drmScheme == "widevine") C.WIDEVINE_UUID else C.PLAYREADY_UUID
+                val licenseHeaders = headers.filter { (k, _) ->
+                    // Pass all custom headers to the license server too
+                    k != "Referer" && k != "Origin"
+                }
                 builder.setDrmConfiguration(
-                    MediaItem.DrmConfiguration.Builder(uuid).setLicenseUri(licUrl).build()
+                    MediaItem.DrmConfiguration.Builder(uuid)
+                        .setLicenseUri(licUrl)
+                        .setLicenseRequestHeaders(licenseHeaders)
+                        .setForceDefaultLicenseUri(true)
+                        .build()
                 )
             }
         }
