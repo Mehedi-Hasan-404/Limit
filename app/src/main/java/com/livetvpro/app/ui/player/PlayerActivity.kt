@@ -544,13 +544,25 @@ class PlayerActivity : AppCompatActivity() {
 
                 when (intent.getIntExtra(PIP_INTENT_ACTION, 0)) {
                     PIP_PAUSE -> {
-                        player?.pause()
+                        val hasError = binding.errorView.visibility == View.VISIBLE
+                        val hasEnded = player?.playbackState == Player.STATE_ENDED
+                        if (hasError || hasEnded) {
+                            retryPlayback()
+                        } else {
+                            player?.pause()
+                        }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             setPictureInPictureParams(updatePipParams(enter = false))
                         }
                     }
                     PIP_PLAY -> {
-                        player?.play()
+                        val hasError = binding.errorView.visibility == View.VISIBLE
+                        val hasEnded = player?.playbackState == Player.STATE_ENDED
+                        if (hasError || hasEnded) {
+                            retryPlayback()
+                        } else {
+                            player?.play()
+                        }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             setPictureInPictureParams(updatePipParams(enter = false))
                         }
