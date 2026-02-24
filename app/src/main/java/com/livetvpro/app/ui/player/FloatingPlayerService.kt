@@ -1413,8 +1413,8 @@ class FloatingPlayerService : Service() {
             for (segment in streamUrl.substring(pipeIndex + 1).split("|")) {
                 val eqIdx = segment.indexOf('=')
                 val value = if (eqIdx != -1) segment.substring(eqIdx + 1) else ""
-                if (value.startsWith("http:
-                    value.startsWith("https:
+                if (value.startsWith("http://", ignoreCase = true) ||
+                    value.startsWith("https://", ignoreCase = true)) {
                     add(segment)
                 } else {
                     addAll(segment.split("&"))
@@ -1435,8 +1435,8 @@ class FloatingPlayerService : Service() {
             when (key.lowercase()) {
                 "drmscheme" -> drmScheme = normalizeDrmScheme(value)
                 "drmlicense" -> when {
-                    value.startsWith("http:
-                    value.startsWith("https:
+                    value.startsWith("http://", ignoreCase = true) ||
+                    value.startsWith("https://", ignoreCase = true) -> drmLicenseUrl = value
                     value.trimStart().startsWith("{") -> drmLicenseUrl = value
                     else -> {
                         val colonIndex = value.indexOf(':')
@@ -1468,8 +1468,8 @@ class FloatingPlayerService : Service() {
         return when {
             drmLicense.trimStart().startsWith("{") ->
                 StreamInfo(url, headers, scheme, null, null, drmLicense)
-            drmLicense.startsWith("http:
-            drmLicense.startsWith("https:
+            drmLicense.startsWith("http://", ignoreCase = true) ||
+            drmLicense.startsWith("https://", ignoreCase = true) ->
                 StreamInfo(url, headers, scheme, null, null, drmLicense)
             drmLicense.contains(':') -> {
                 val i = drmLicense.indexOf(':')
