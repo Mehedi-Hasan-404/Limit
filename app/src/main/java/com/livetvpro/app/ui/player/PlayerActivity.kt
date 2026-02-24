@@ -538,60 +538,7 @@ class PlayerActivity : AppCompatActivity() {
 
         controlsState.hide()
 
-        pipReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent == null || intent.action != PIP_INTENTS_FILTER) return
-
-                when (intent.getIntExtra(PIP_INTENT_ACTION, 0)) {
-                    PIP_PAUSE -> {
-                        val hasError = binding.errorView.visibility == View.VISIBLE
-                        val hasEnded = player?.playbackState == Player.STATE_ENDED
-                        if (hasError || hasEnded) {
-                            retryPlayback()
-                        } else {
-                            player?.pause()
-                        }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            setPictureInPictureParams(updatePipParams(enter = false))
-                        }
-                    }
-                    PIP_PLAY -> {
-                        val hasError = binding.errorView.visibility == View.VISIBLE
-                        val hasEnded = player?.playbackState == Player.STATE_ENDED
-                        if (hasError || hasEnded) {
-                            retryPlayback()
-                        } else {
-                            player?.play()
-                        }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            setPictureInPictureParams(updatePipParams(enter = false))
-                        }
-                    }
-                    PIP_FF -> {
-                        player?.let { p ->
-                            val newPosition = p.currentPosition + 10_000L
-                            if (p.isCurrentMediaItemLive && p.duration != C.TIME_UNSET) {
-                                p.seekTo(minOf(newPosition, p.duration))
-                            } else {
-                                p.seekTo(newPosition)
-                            }
-                        }
-                    }
-                    PIP_FR -> {
-                        player?.let { p ->
-                            val newPosition = maxOf(0L, p.currentPosition - 10_000L)
-                            p.seekTo(newPosition)
-                        }
-                    }
-                }
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(pipReceiver, IntentFilter(PIP_INTENTS_FILTER), Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(pipReceiver, IntentFilter(PIP_INTENTS_FILTER))
-        }
+        setupPipReceiver()
 
         super.onPictureInPictureModeChanged(true, newConfig)
     }
@@ -1915,9 +1862,9 @@ class PlayerActivity : AppCompatActivity() {
         actions.add(RemoteAction(
             Icon.createWithResource(context, R.drawable.ic_skip_backward),
             "Rewind", "Rewind 10s",
-            PendingIntent.getBroadcast(context, PIP_FR,
-                Intent(PIP_INTENTS_FILTER).setPackage(context.packageName)
-                    .putExtra(PIP_INTENT_ACTION, PIP_FR),
+            PendingIntent.getBroadcast(context, CONTROL_TYPE_REWIND,
+                Intent(ACTION_MEDIA_CONTROL).setPackage(context.packageName)
+                    .putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_REWIND),
                 PendingIntent.FLAG_IMMUTABLE)
         ))
 
@@ -1925,18 +1872,18 @@ class PlayerActivity : AppCompatActivity() {
             actions.add(RemoteAction(
                 Icon.createWithResource(context, R.drawable.ic_play),
                 context.getString(R.string.play), context.getString(R.string.play),
-                PendingIntent.getBroadcast(context, PIP_PLAY,
-                    Intent(PIP_INTENTS_FILTER).setPackage(context.packageName)
-                        .putExtra(PIP_INTENT_ACTION, PIP_PLAY),
+                PendingIntent.getBroadcast(context, CONTROL_TYPE_PLAY,
+                    Intent(ACTION_MEDIA_CONTROL).setPackage(context.packageName)
+                        .putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_PLAY),
                     PendingIntent.FLAG_IMMUTABLE)
             ))
         } else {
             actions.add(RemoteAction(
                 Icon.createWithResource(context, R.drawable.ic_pause),
                 context.getString(R.string.pause), context.getString(R.string.pause),
-                PendingIntent.getBroadcast(context, PIP_PAUSE,
-                    Intent(PIP_INTENTS_FILTER).setPackage(context.packageName)
-                        .putExtra(PIP_INTENT_ACTION, PIP_PAUSE),
+                PendingIntent.getBroadcast(context, CONTROL_TYPE_PAUSE,
+                    Intent(ACTION_MEDIA_CONTROL).setPackage(context.packageName)
+                        .putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_PAUSE),
                     PendingIntent.FLAG_IMMUTABLE)
             ))
         }
@@ -1944,9 +1891,9 @@ class PlayerActivity : AppCompatActivity() {
         actions.add(RemoteAction(
             Icon.createWithResource(context, R.drawable.ic_skip_forward),
             "Forward", "Forward 10s",
-            PendingIntent.getBroadcast(context, PIP_FF,
-                Intent(PIP_INTENTS_FILTER).setPackage(context.packageName)
-                    .putExtra(PIP_INTENT_ACTION, PIP_FF),
+            PendingIntent.getBroadcast(context, CONTROL_TYPE_FORWARD,
+                Intent(ACTION_MEDIA_CONTROL).setPackage(context.packageName)
+                    .putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_FORWARD),
                 PendingIntent.FLAG_IMMUTABLE)
         ))
 
