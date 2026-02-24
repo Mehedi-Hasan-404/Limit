@@ -169,7 +169,6 @@ class PlayerActivity : AppCompatActivity() {
         var isInPip: Boolean = false
 
         fun startWithChannel(context: Context, channel: Channel, linkIndex: Int = -1, relatedChannels: ArrayList<Channel>? = null, categoryId: String? = null, selectedGroup: String? = null, isSports: Boolean = false) {
-            if (isInPip) return
             val intent = Intent(context, PlayerActivity::class.java).apply {
                 putExtra(EXTRA_CHANNEL, channel as Parcelable)
                 putExtra(EXTRA_SELECTED_LINK_INDEX, linkIndex)
@@ -180,6 +179,7 @@ class PlayerActivity : AppCompatActivity() {
                 selectedGroup?.let { putExtra(EXTRA_SELECTED_GROUP, it) }
                 putExtra(EXTRA_IS_SPORTS, isSports)
                 addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                if (isInPip) addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             context.startActivity(intent)
             if (context is android.app.Activity) {
@@ -188,16 +188,44 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         fun startWithEvent(context: Context, event: LiveEvent, linkIndex: Int = -1) {
-            if (isInPip) return
             val intent = Intent(context, PlayerActivity::class.java).apply {
                 putExtra(EXTRA_EVENT, event as Parcelable)
                 putExtra(EXTRA_SELECTED_LINK_INDEX, linkIndex)
                 addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                if (isInPip) addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             context.startActivity(intent)
             if (context is android.app.Activity) {
                 context.overridePendingTransition(0, 0)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+        // If we're in PiP, expand back to full screen then switch content
+        if (isInPipMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            moveTaskToFront(taskId, 0)
+        }
+
+        // Parse and switch to the new channel/event from the intent
+        val newChannel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(EXTRA_CHANNEL, Channel::class.java)
+        } else {
+            @Suppress("DEPRECATION") intent.getParcelableExtra(EXTRA_CHANNEL)
+        }
+        val newEvent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(EXTRA_EVENT, LiveEvent::class.java)
+        } else {
+            @Suppress("DEPRECATION") intent.getParcelableExtra(EXTRA_EVENT)
+        }
+        val linkIndex = intent.getIntExtra(EXTRA_SELECTED_LINK_INDEX, -1)
+
+        when {
+            newChannel != null -> switchToChannel(newChannel, linkIndex)
+            newEvent != null   -> switchToEventFromLiveEvent(newEvent)
         }
     }
 
@@ -521,6 +549,16 @@ class PlayerActivity : AppCompatActivity() {
             isInPipMode = false
             isEnteringPip = false
             isInPip = false
+
+            super.onPictureInPictureModeChanged(false, newConfig)
+
+            // User closed (X) the PiP window — finish instead of restoring UI
+            if (isFinishing) {
+                player?.stop()
+                finish()
+                return
+            }
+
             controlsState.show(lifecycleScope)
 
             if (wasLockedBeforePip) {
@@ -528,7 +566,6 @@ class PlayerActivity : AppCompatActivity() {
                 wasLockedBeforePip = false
             }
 
-            super.onPictureInPictureModeChanged(false, newConfig)
             exitPipUIMode(newConfig)
             return
         }
@@ -1076,7 +1113,7 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun switchToChannel(newChannel: Channel) {
+    private fun switchToChannel(newChannel: Channel, linkIndex: Int = -1) {
         releasePlayer()
         channelData = newChannel
         eventData = null
@@ -1097,8 +1134,8 @@ class PlayerActivity : AppCompatActivity() {
                     drmLicenseUrl = it.drmLicenseUrl
                 )
             }
-            currentLinkIndex = 0
-            streamUrl = allEventLinks.firstOrNull()?.let { buildStreamUrl(it) } ?: newChannel.streamUrl
+            currentLinkIndex = if (linkIndex in allEventLinks.indices) linkIndex else 0
+            streamUrl = allEventLinks.getOrNull(currentLinkIndex)?.let { buildStreamUrl(it) } ?: newChannel.streamUrl
         } else {
             allEventLinks = emptyList()
             streamUrl = newChannel.streamUrl
