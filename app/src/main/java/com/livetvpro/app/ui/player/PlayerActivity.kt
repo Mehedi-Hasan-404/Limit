@@ -166,7 +166,10 @@ class PlayerActivity : AppCompatActivity() {
         private const val PIP_FR = 3
         private const val PIP_FF = 4
 
+        var isInPip: Boolean = false
+
         fun startWithChannel(context: Context, channel: Channel, linkIndex: Int = -1, relatedChannels: ArrayList<Channel>? = null, categoryId: String? = null, selectedGroup: String? = null, isSports: Boolean = false) {
+            if (isInPip) return
             val intent = Intent(context, PlayerActivity::class.java).apply {
                 putExtra(EXTRA_CHANNEL, channel as Parcelable)
                 putExtra(EXTRA_SELECTED_LINK_INDEX, linkIndex)
@@ -185,6 +188,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         fun startWithEvent(context: Context, event: LiveEvent, linkIndex: Int = -1) {
+            if (isInPip) return
             val intent = Intent(context, PlayerActivity::class.java).apply {
                 putExtra(EXTRA_EVENT, event as Parcelable)
                 putExtra(EXTRA_SELECTED_LINK_INDEX, linkIndex)
@@ -516,6 +520,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             isInPipMode = false
             isEnteringPip = false
+            isInPip = false
             controlsState.show(lifecycleScope)
 
             if (wasLockedBeforePip) {
@@ -530,6 +535,7 @@ class PlayerActivity : AppCompatActivity() {
 
         isInPipMode = true
         isEnteringPip = false
+        isInPip = true
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             setPictureInPictureParams(updatePipParams(enter = true))
@@ -1915,6 +1921,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             isInPipMode = false
             wasLockedBeforePip = false
+            isInPip = false
             super.finish()
         } catch (e: Exception) {
             super.finish()
