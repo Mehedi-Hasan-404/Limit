@@ -2,7 +2,6 @@ package com.livetvpro.app.utils
 
 object FloatingPlayerManager {
     
-    // Store preferences manager reference
     private var preferencesManager: com.livetvpro.app.data.local.PreferencesManager? = null
     
     private val activeFloatingPlayers = mutableMapOf<String, PlayerMetadata>()
@@ -29,8 +28,6 @@ object FloatingPlayerManager {
      */
     private fun getMaxAllowedPlayers(): Int {
         val maxPlayers = preferencesManager?.getMaxFloatingWindows() ?: 1
-        // FIX Bug 3: 0 was old "Disable" value which broke canAddNewPlayer (0 < 0 = never true).
-        // Treat 0 as 1 for backward compatibility.
         val effective = if (maxPlayers <= 0) 1 else maxPlayers
         android.util.Log.d("FloatingPlayerManager", "Max allowed players: $effective")
         return effective
@@ -92,6 +89,11 @@ object FloatingPlayerManager {
     
     fun hasAnyPlayers(): Boolean {
         return activeFloatingPlayers.isNotEmpty()
+    }
+
+    /** Returns the most recently created floating player's instanceId, or null if none active. */
+    fun getLastPlayerId(): String? {
+        return activeFloatingPlayers.keys.lastOrNull()
     }
     
     fun clearAll() {
