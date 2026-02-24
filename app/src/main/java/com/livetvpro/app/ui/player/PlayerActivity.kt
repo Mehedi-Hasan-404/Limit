@@ -207,7 +207,8 @@ class PlayerActivity : AppCompatActivity() {
 
         // If we're in PiP, expand back to full screen then switch content
         if (isInPipMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            moveTaskToFront(taskId, 0)
+            val am = getSystemService(android.app.ActivityManager::class.java)
+            am?.moveTaskToFront(taskId, 0)
         }
 
         // Parse and switch to the new channel/event from the intent
