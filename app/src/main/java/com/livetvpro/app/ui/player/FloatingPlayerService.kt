@@ -99,17 +99,10 @@ class FloatingPlayerService : Service() {
 
         fun start(context: Context, channel: Channel, linkIndex: Int = 0, playbackPosition: Long = 0L) {
             try {
-                val streamUrl = if (!channel.links.isNullOrEmpty()) {
-                    val selectedLink = if (linkIndex in channel.links!!.indices) channel.links!![linkIndex] else channel.links!!.firstOrNull()
-                    selectedLink?.url ?: channel.streamUrl
-                } else {
-                    channel.streamUrl
-                }
-                if (streamUrl.isBlank()) return
+                if (channel.streamUrl.isBlank() && channel.links.isNullOrEmpty()) return
 
                 val intent = Intent(context, FloatingPlayerService::class.java).apply {
                     putExtra(EXTRA_CHANNEL, channel)
-                    putExtra(EXTRA_STREAM_URL, streamUrl)
                     putExtra(EXTRA_TITLE, channel.name)
                     putExtra(EXTRA_PLAYBACK_POSITION, playbackPosition)
                     putExtra(EXTRA_LINK_INDEX, linkIndex)
@@ -121,7 +114,6 @@ class FloatingPlayerService : Service() {
                     context.startService(intent)
                 }
             } catch (e: Exception) {
-
             }
         }
 
@@ -139,34 +131,12 @@ class FloatingPlayerService : Service() {
             try {
                 if (channel == null && event == null) return false
 
-                val streamUrl = when {
-                    channel != null -> {
-                        val links = channel.links
-                        if (!links.isNullOrEmpty()) {
-                            val selectedLink = if (linkIndex in links.indices) links[linkIndex] else links.firstOrNull()
-                            selectedLink?.url ?: channel.streamUrl
-                        } else {
-                            channel.streamUrl
-                        }.also { if (it.isBlank()) return false }
-                    }
-                    event != null -> {
-                        val links = event.links
-                        if (links.isEmpty()) return false
-                        val selectedLink = if (linkIndex in links.indices) links[linkIndex] else links.firstOrNull()
-                        selectedLink?.url ?: return false
-                    }
-                    else -> return false
-                }
-
-                if (streamUrl.isBlank()) return false
-
                 val title = channel?.name ?: event?.title ?: "Unknown"
 
                 val intent = Intent(context, FloatingPlayerService::class.java).apply {
                     putExtra(EXTRA_INSTANCE_ID, instanceId)
                     if (channel != null) putExtra(EXTRA_CHANNEL, channel)
                     if (event != null) putExtra(EXTRA_EVENT, event)
-                    putExtra(EXTRA_STREAM_URL, streamUrl)
                     putExtra(EXTRA_TITLE, title)
                     putExtra(EXTRA_PLAYBACK_POSITION, 0L)
                     putExtra(EXTRA_LINK_INDEX, linkIndex)
@@ -874,25 +844,58 @@ class FloatingPlayerService : Service() {
         val instance = activeInstances[instanceId] ?: return
 
         try {
-            val streamUrl = if (!channel.links.isNullOrEmpty()) {
-                val selectedLink = if (linkIndex in channel.links!!.indices) {
-                    channel.links!![linkIndex]
-                } else {
-                    channel.links!!.firstOrNull()
-                }
-                selectedLink?.url ?: channel.streamUrl
-            } else {
-                channel.streamUrl
+            val selectedLink = if (!channel.links.isNullOrEmpty()) {
+                if (linkIndex in channel.links!!.indices) channel.links!![linkIndex]
+                else channel.links!!.firstOrNull()
+            } else null
+
+            val rawUrl = selectedLink?.url ?: channel.streamUrl
+            if (rawUrl.isBlank()) return
+
+            val parsedStream = parseStreamUrl(rawUrl)
+            val actualUrl = parsedStream.url
+            val headers = mutableMapOf<String, String>()
+            selectedLink?.let { link ->
+                link.referer?.takeIf { it.isNotEmpty() }?.let { headers["Referer"] = it }
+                link.cookie?.takeIf { it.isNotEmpty() }?.let { headers["Cookie"] = it }
+                link.origin?.takeIf { it.isNotEmpty() }?.let { headers["Origin"] = it }
+                link.userAgent?.takeIf { it.isNotEmpty() }?.let { headers["User-Agent"] = it }
+            }
+            parsedStream.headers.forEach { (k, v) -> headers.putIfAbsent(k, v) }
+            if (!headers.containsKey("User-Agent")) {
+                headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
 
-            if (streamUrl.isBlank()) return
+            val effectiveDrmScheme = parsedStream.drmScheme
+                ?: selectedLink?.drmScheme?.takeIf { it.isNotEmpty() }
+            val effectiveDrmLicenseUrl = parsedStream.drmLicenseUrl
+                ?: selectedLink?.drmLicenseUrl?.takeIf { it.isNotEmpty() }
+            val effectiveStreamInfo = if (effectiveDrmScheme != null &&
+                (parsedStream.drmKeyId != null || effectiveDrmLicenseUrl != null)) {
+                parsedStream.copy(drmScheme = effectiveDrmScheme, drmLicenseUrl = effectiveDrmLicenseUrl)
+            } else if (effectiveDrmScheme != null && effectiveDrmLicenseUrl != null) {
+                buildStreamInfoFromDrmFields(actualUrl, headers, effectiveDrmScheme, effectiveDrmLicenseUrl)
+            } else {
+                parsedStream
+            }
+
+            val dataSourceFactory = DefaultHttpDataSource.Factory()
+                .setUserAgent(headers["User-Agent"] ?: "LiveTVPro/1.0")
+                .setDefaultRequestProperties(headers)
+                .setConnectTimeoutMs(30000)
+                .setReadTimeoutMs(30000)
+                .setAllowCrossProtocolRedirects(true)
+            val mediaSourceFactory = buildDrmMediaSourceFactory(effectiveStreamInfo, dataSourceFactory, headers)
 
             instance.currentChannel = channel
 
             val titleText = instance.floatingView.findViewById<TextView>(R.id.tv_title)
             titleText.text = channel.name
 
-            val mediaItem = MediaItem.Builder().setUri(streamUrl).build()
+            instance.player.stop()
+            instance.player.clearMediaItems()
+
+            val mediaItem = buildDrmMediaItem(effectiveStreamInfo)
             instance.player.setMediaItem(mediaItem)
             instance.player.prepare()
             instance.player.playWhenReady = true
