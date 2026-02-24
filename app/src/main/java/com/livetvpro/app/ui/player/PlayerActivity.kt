@@ -553,13 +553,6 @@ class PlayerActivity : AppCompatActivity() {
 
             super.onPictureInPictureModeChanged(false, newConfig)
 
-            // User closed (X) the PiP window — finish instead of restoring UI
-            if (isFinishing) {
-                player?.stop()
-                finish()
-                return
-            }
-
             controlsState.show(lifecycleScope)
 
             if (wasLockedBeforePip) {
@@ -1216,6 +1209,10 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        // If onStop fires while still in PiP mode, the user closed (X) the PiP window
+        if (isInPipMode) {
+            finish()
+        }
     }
 
     override fun onDestroy() {
