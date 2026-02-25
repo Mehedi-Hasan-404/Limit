@@ -49,15 +49,14 @@
         android:focusable="false"
         android:buttonTint="#EF4444" />
 
-    <!-- Shown when isRadio = false -->
-    <CheckBox
+    <!-- Shown when isRadio = false — now MaterialCheckBox for Material animated style -->
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/checkToggle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:clickable="false"
         android:focusable="false"
-        android:buttonTint="#EF4444"
         android:visibility="gone" />
 
 </LinearLayout>
