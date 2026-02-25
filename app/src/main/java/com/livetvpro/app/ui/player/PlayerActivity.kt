@@ -201,17 +201,27 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    private var pendingIntentAfterPip: Intent? = null
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
 
-        // If we're in PiP, expand back to full screen then switch content
-        if (isInPipMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val am = getSystemService(android.app.ActivityManager::class.java)
-            am?.moveTaskToFront(taskId, 0)
+        if (isInPipMode) {
+            pendingIntentAfterPip = intent
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    val am = getSystemService(android.app.ActivityManager::class.java)
+                    am?.moveTaskToFront(taskId, 0)
+                } catch (e: Exception) { }
+            }
+            return
         }
 
-        // Parse and switch to the new channel/event from the intent
+        handleNewIntent(intent)
+    }
+
+    private fun handleNewIntent(intent: Intent) {
         val newChannel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(EXTRA_CHANNEL, Channel::class.java)
         } else {
@@ -561,6 +571,11 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             exitPipUIMode(newConfig)
+
+            pendingIntentAfterPip?.let { pending ->
+                pendingIntentAfterPip = null
+                handleNewIntent(pending)
+            }
             return
         }
 
@@ -1597,6 +1612,7 @@ class PlayerActivity : AppCompatActivity() {
                 .setDefaultRequestProperties(headers)
                 .setConnectTimeoutMs(30000).setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
             val cb = HttpMediaDrmCallback(licenseUrl, factory)
             headers.forEach { (k, v) -> cb.setKeyRequestProperty(k, v) }
             DefaultDrmSessionManager.Builder()
@@ -1615,6 +1631,7 @@ class PlayerActivity : AppCompatActivity() {
                 .setConnectTimeoutMs(30000)
                 .setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
 
             val drmCallback = HttpMediaDrmCallback(
                 licenseUrl,
@@ -1644,6 +1661,7 @@ class PlayerActivity : AppCompatActivity() {
                 .setConnectTimeoutMs(30000)
                 .setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
 
             val drmCallback = HttpMediaDrmCallback(
                 licenseUrl,
