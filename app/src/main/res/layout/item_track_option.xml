@@ -25,7 +25,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@android:color/white"
-            android:textSize="15sp"
+            android:textSize="12sp"
+            android:textStyle="bold"
             android:fontFamily="sans-serif-medium" />
 
         <TextView
@@ -33,33 +34,30 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#999999"
-            android:textSize="13sp"
-            android:layout_marginTop="2dp" />
+            android:textSize="11sp"
+            android:layout_marginTop="1dp" />
 
     </LinearLayout>
 
-    <!-- Shown when item.isRadio = true — radio button, untouched as-is -->
+    <!-- Shown when isRadio = true -->
     <RadioButton
         android:id="@+id/radioToggle"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_gravity="center_vertical"
-        android:layout_marginStart="8dp"
-        android:clickable="false"
-        android:focusable="false"
-        android:visibility="gone" />
-
-    <!-- Shown when item.isRadio = false — plain Material CheckBox, same as SENSEIGRAM.
-         No custom attributes needed: Material 1.11.0 provides the animated fill,
-         animated checkmark stroke, and ripple automatically via colorAccent. -->
-    <CheckBox
-        android:id="@+id/checkboxToggle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
         android:layout_marginStart="8dp"
         android:clickable="false"
         android:focusable="false"
+        android:buttonTint="#EF4444" />
+
+    <!-- Shown when isRadio = false -->
+    <CheckBox
+        android:id="@+id/checkToggle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:buttonTint="#EF4444"
         android:visibility="gone" />
 
 </LinearLayout>
