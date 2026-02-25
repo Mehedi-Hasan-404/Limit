@@ -1265,38 +1265,20 @@ class FloatingPlayerActivity : AppCompatActivity() {
                 .setAllowCrossProtocolRedirects(true)
                 .setKeepPostFor302Redirects(true)
 
-            val mediaSourceFactory = if (streamInfo.drmScheme != null) {
-                val drmSessionManager = when (streamInfo.drmScheme) {
-                    "clearkey" -> {
-                        if (streamInfo.drmKeyId != null && streamInfo.drmKey != null) {
-                            createClearKeyDrmManager(streamInfo.drmKeyId, streamInfo.drmKey)
-                        } else if (streamInfo.drmLicenseUrl?.trimStart()?.startsWith("{") == true) {
-                            createClearKeyDrmManagerFromJwk(streamInfo.drmLicenseUrl)
-                        } else if (streamInfo.drmLicenseUrl?.startsWith("http", ignoreCase = true) == true) {
-                            createClearKeyServerDrmManager(streamInfo.drmLicenseUrl, headers)
-                        } else null
-                    }
-                    "widevine" -> {
-                        if (streamInfo.drmLicenseUrl != null) {
-                            createWidevineDrmManager(streamInfo.drmLicenseUrl, headers)
-                        } else null
-                    }
-                    "playready" -> {
-                        if (streamInfo.drmLicenseUrl != null) {
-                            createPlayReadyDrmManager(streamInfo.drmLicenseUrl, headers)
-                        } else null
-                    }
-                    else -> null
-                }
-
-                if (drmSessionManager != null) {
-                    DefaultMediaSourceFactory(this)
-                        .setDataSourceFactory(dataSourceFactory)
-                        .setDrmSessionManagerProvider { drmSessionManager }
-                } else {
-                    DefaultMediaSourceFactory(this)
-                        .setDataSourceFactory(dataSourceFactory)
-                }
+            val clearKeyMgr = when {
+                streamInfo.drmScheme != "clearkey" -> null
+                streamInfo.drmKeyId != null && streamInfo.drmKey != null ->
+                    createClearKeyDrmManager(streamInfo.drmKeyId, streamInfo.drmKey)
+                streamInfo.drmLicenseUrl?.trimStart()?.startsWith("{") == true ->
+                    createClearKeyDrmManagerFromJwk(streamInfo.drmLicenseUrl)
+                streamInfo.drmLicenseUrl?.startsWith("http", ignoreCase = true) == true ->
+                    createClearKeyServerDrmManager(streamInfo.drmLicenseUrl, headers)
+                else -> null
+            }
+            val mediaSourceFactory = if (clearKeyMgr != null) {
+                DefaultMediaSourceFactory(this)
+                    .setDataSourceFactory(dataSourceFactory)
+                    .setDrmSessionManagerProvider { clearKeyMgr }
             } else {
                 DefaultMediaSourceFactory(this)
                     .setDataSourceFactory(dataSourceFactory)
@@ -1320,9 +1302,14 @@ class FloatingPlayerActivity : AppCompatActivity() {
                     val uri = android.net.Uri.parse(streamInfo.url)
                     val mediaItemBuilder = MediaItem.Builder().setUri(uri)
 
-                    if (streamInfo.url.contains("m3u8", ignoreCase = true) ||
-                        streamInfo.url.contains("extension=m3u8", ignoreCase = true)) {
-                        mediaItemBuilder.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8)
+                    val urlLower = streamInfo.url.lowercase()
+                    when {
+                        urlLower.contains("m3u8") || urlLower.contains("extension=m3u8") ->
+                            mediaItemBuilder.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8)
+                        urlLower.contains(".mpd") || urlLower.contains("/dash/") || urlLower.contains("type=mpd") ->
+                            mediaItemBuilder.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_MPD)
+                        urlLower.contains(".ism") || urlLower.contains(".isml") ->
+                            mediaItemBuilder.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_SS)
                     }
 
                     if ((streamInfo.drmScheme == "widevine" || streamInfo.drmScheme == "playready")
@@ -1453,27 +1440,6 @@ class FloatingPlayerActivity : AppCompatActivity() {
         binding.errorView.visibility = View.VISIBLE
     }
 
-
-    /** ClearKey via HTTP license server (e.g. Shaka, Axinom in clearkey mode).
-     *  Uses the W3C ClearKey UUID with an HTTP callback instead of inline keys. */
-    private fun createClearKeyServerDrmManager(licenseUrl: String, headers: Map<String, String>): DefaultDrmSessionManager? {
-        return try {
-            val clearKeyUuid = java.util.UUID.fromString("e2719d58-a985-b3c9-781a-b030af78d30e")
-            val factory = DefaultHttpDataSource.Factory()
-                .setUserAgent(headers["User-Agent"] ?: "LiveTVPro/1.0")
-                .setDefaultRequestProperties(headers)
-                .setConnectTimeoutMs(30000)
-                .setReadTimeoutMs(30000)
-                .setAllowCrossProtocolRedirects(true)
-            val cb = HttpMediaDrmCallback(licenseUrl, factory)
-            headers.forEach { (k, v) -> cb.setKeyRequestProperty(k, v) }
-            DefaultDrmSessionManager.Builder()
-                .setUuidAndExoMediaDrmProvider(clearKeyUuid, FrameworkMediaDrm.DEFAULT_PROVIDER)
-                .setMultiSession(false)
-                .build(cb)
-        } catch (e: Exception) { null }
-    }
-
     private fun createClearKeyDrmManager(keyIdHex: String, keyHex: String): DefaultDrmSessionManager? {
         return try {
             val clearKeyUuid = UUID.fromString("e2719d58-a985-b3c9-781a-b030af78d30e")
@@ -1523,6 +1489,22 @@ class FloatingPlayerActivity : AppCompatActivity() {
         } catch (e: Exception) {
             null
         }
+    }
+
+    private fun createClearKeyServerDrmManager(licenseUrl: String, headers: Map<String, String>): DefaultDrmSessionManager? {
+        return try {
+            val clearKeyUuid = UUID.fromString("e2719d58-a985-b3c9-781a-b030af78d30e")
+            val factory = DefaultHttpDataSource.Factory()
+                .setUserAgent(headers["User-Agent"] ?: "LiveTVPro/1.0")
+                .setDefaultRequestProperties(headers)
+                .setConnectTimeoutMs(30000).setReadTimeoutMs(30000)
+                .setAllowCrossProtocolRedirects(true)
+            val cb = HttpMediaDrmCallback(licenseUrl, factory)
+            headers.forEach { (k, v) -> cb.setKeyRequestProperty(k, v) }
+            DefaultDrmSessionManager.Builder()
+                .setUuidAndExoMediaDrmProvider(clearKeyUuid, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                .setMultiSession(false).build(cb)
+        } catch (e: Exception) { null }
     }
 
     private fun createWidevineDrmManager(licenseUrl: String, requestHeaders: Map<String, String>): DefaultDrmSessionManager? {
