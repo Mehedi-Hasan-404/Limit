@@ -882,13 +882,27 @@ class FloatingPlayerService : Service() {
             val titleText = instance.floatingView.findViewById<TextView>(R.id.tv_title)
             titleText.text = channel?.name ?: event?.title ?: "Unknown"
 
+            val wasMuted = instance.isMuted
             instance.player.stop()
-            instance.player.clearMediaItems()
+            instance.player.release()
+
+            val newPlayer = ExoPlayer.Builder(this)
+                .setRenderersFactory(
+                    DefaultRenderersFactory(this).setExtensionRendererMode(
+                        DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+                    )
+                )
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build()
+            newPlayer.volume = if (wasMuted) 0f else 1f
+            instance.playerView.player = newPlayer
 
             val mediaItem = buildDrmMediaItem(parsedStream, headers)
-            instance.player.setMediaItem(mediaItem)
-            instance.player.prepare()
-            instance.player.playWhenReady = true
+            newPlayer.setMediaItem(mediaItem)
+            newPlayer.prepare()
+            newPlayer.playWhenReady = true
+
+            activeInstances[instanceId] = instance.copy(player = newPlayer)
 
             updateNotification()
 
