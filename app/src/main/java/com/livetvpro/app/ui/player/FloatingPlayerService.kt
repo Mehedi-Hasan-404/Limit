@@ -444,6 +444,7 @@ class FloatingPlayerService : Service() {
                 .setConnectTimeoutMs(30000)
                 .setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
             val mediaSourceFactory = buildDrmMediaSourceFactory(effectiveStreamInfo, dataSourceFactory, headers)
             val player = ExoPlayer.Builder(this)
                 .setRenderersFactory(
@@ -770,6 +771,7 @@ class FloatingPlayerService : Service() {
                 .setConnectTimeoutMs(30000)
                 .setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
 
             val nsStreamInfo = buildStreamInfoFromDrmFields(streamUrl, headers, drmScheme, drmLicense)
             val nsMediaSourceFactory = buildDrmMediaSourceFactory(nsStreamInfo, nsDataSourceFactory, headers)
@@ -874,6 +876,7 @@ class FloatingPlayerService : Service() {
                 .setConnectTimeoutMs(30000)
                 .setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
             val mediaSourceFactory = buildDrmMediaSourceFactory(parsedStream, dataSourceFactory, headers)
 
             instance.currentChannel = channel
@@ -1525,6 +1528,7 @@ class FloatingPlayerService : Service() {
                 .setConnectTimeoutMs(30000)
                 .setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
             val cb = HttpMediaDrmCallback(licenseUrl, factory)
             headers.forEach { (k, v) -> cb.setKeyRequestProperty(k, v) }
             DefaultDrmSessionManager.Builder()
@@ -1566,6 +1570,7 @@ class FloatingPlayerService : Service() {
                 .setDefaultRequestProperties(headers)
                 .setConnectTimeoutMs(30000).setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
             val cb = HttpMediaDrmCallback(licenseUrl, factory)
             headers.forEach { (k, v) -> cb.setKeyRequestProperty(k, v) }
             DefaultDrmSessionManager.Builder()
@@ -1581,6 +1586,7 @@ class FloatingPlayerService : Service() {
                 .setDefaultRequestProperties(headers)
                 .setConnectTimeoutMs(30000).setReadTimeoutMs(30000)
                 .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
             val cb = HttpMediaDrmCallback(licenseUrl, factory)
             headers.forEach { (k, v) -> cb.setKeyRequestProperty(k, v) }
             DefaultDrmSessionManager.Builder()
@@ -1615,9 +1621,14 @@ class FloatingPlayerService : Service() {
 
     private fun buildDrmMediaItem(streamInfo: StreamInfo, headers: Map<String, String>): MediaItem {
         val builder = MediaItem.Builder().setUri(streamInfo.url)
-        if (streamInfo.url.contains("m3u8", ignoreCase = true) ||
-            streamInfo.url.contains("extension=m3u8", ignoreCase = true)) {
-            builder.setMimeType(MimeTypes.APPLICATION_M3U8)
+        val url = streamInfo.url.lowercase()
+        when {
+            url.contains("m3u8") || url.contains("extension=m3u8") ->
+                builder.setMimeType(MimeTypes.APPLICATION_M3U8)
+            url.contains(".mpd") || url.contains("/dash/") || url.contains("type=mpd") ->
+                builder.setMimeType(MimeTypes.APPLICATION_MPD)
+            url.contains(".ism") || url.contains(".isml") || url.contains("manifest(format=mpd") ->
+                builder.setMimeType(MimeTypes.APPLICATION_SS)
         }
         if (streamInfo.drmScheme == "widevine" || streamInfo.drmScheme == "playready") {
             streamInfo.drmLicenseUrl?.let { licUrl ->
