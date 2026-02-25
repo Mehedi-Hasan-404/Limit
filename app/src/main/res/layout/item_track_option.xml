@@ -38,13 +38,26 @@
 
     </LinearLayout>
 
-    <androidx.compose.ui.platform.ComposeView
-        android:id="@+id/composeToggle"
+    <!-- Shown when item.isRadio = true — radio button, untouched as-is -->
+    <RadioButton
+        android:id="@+id/radioToggle"
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:layout_gravity="center_vertical"
         android:layout_marginStart="8dp"
         android:clickable="false"
-        android:focusable="false" />
+        android:focusable="false"
+        android:visibility="gone" />
+
+    <!-- Shown when item.isRadio = false — plain CheckBox, same as SENSEIGRAM -->
+    <CheckBox
+        android:id="@+id/checkboxToggle"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="8dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="gone" />
 
 </LinearLayout>
