@@ -49,11 +49,13 @@
         android:focusable="false"
         android:visibility="gone" />
 
-    <!-- Shown when item.isRadio = false — plain CheckBox, same as SENSEIGRAM -->
+    <!-- Shown when item.isRadio = false — plain Material CheckBox, same as SENSEIGRAM.
+         No custom attributes needed: Material 1.11.0 provides the animated fill,
+         animated checkmark stroke, and ripple automatically via colorAccent. -->
     <CheckBox
         android:id="@+id/checkboxToggle"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
         android:layout_marginStart="8dp"
         android:clickable="false"
