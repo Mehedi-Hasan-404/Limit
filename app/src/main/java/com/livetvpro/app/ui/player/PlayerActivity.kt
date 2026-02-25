@@ -179,6 +179,7 @@ class PlayerActivity : AppCompatActivity() {
                 selectedGroup?.let { putExtra(EXTRA_SELECTED_GROUP, it) }
                 putExtra(EXTRA_IS_SPORTS, isSports)
                 addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                if (isInPip) addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             context.startActivity(intent)
             if (context is android.app.Activity) {
@@ -191,6 +192,7 @@ class PlayerActivity : AppCompatActivity() {
                 putExtra(EXTRA_EVENT, event as Parcelable)
                 putExtra(EXTRA_SELECTED_LINK_INDEX, linkIndex)
                 addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                if (isInPip) addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             context.startActivity(intent)
             if (context is android.app.Activity) {
@@ -202,6 +204,12 @@ class PlayerActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+
+        // If we're in PiP, expand back to full screen then switch content
+        if (isInPipMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val am = getSystemService(android.app.ActivityManager::class.java)
+            am?.moveTaskToFront(taskId, 0)
+        }
 
         // Parse and switch to the new channel/event from the intent
         val newChannel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -514,7 +522,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
-            setPictureInPictureParams(createPipParams())
+            setPictureInPictureParams(updatePipParams())
         }
     }
 
@@ -534,6 +542,7 @@ class PlayerActivity : AppCompatActivity() {
         newConfig: Configuration
     ) {
         if (!isInPictureInPictureMode) {
+
             pipReceiver?.let {
                 unregisterReceiver(it)
                 pipReceiver = null
@@ -560,7 +569,7 @@ class PlayerActivity : AppCompatActivity() {
         isInPip = true
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            setPictureInPictureParams(createPipParams())
+            setPictureInPictureParams(updatePipParams(enter = true))
         }
 
         controlsState.hide()
@@ -604,13 +613,10 @@ class PlayerActivity : AppCompatActivity() {
 
     @SuppressLint("NewApi")
     override fun onUserLeaveHint() {
-        if (!DeviceUtils.isTvDevice && isPipSupported &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            player?.isPlaying == true
-        ) {
+        if (!DeviceUtils.isTvDevice && isPipSupported && player?.isPlaying == true) {
             isEnteringPip = true
             wasLockedBeforePip = controlsState.isLocked
-            enterPictureInPictureMode(createPipParams())
+            enterPictureInPictureMode(updatePipParams(enter = true))
         }
         super.onUserLeaveHint()
     }
@@ -735,7 +741,7 @@ class PlayerActivity : AppCompatActivity() {
                             onPipClick = {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                     wasLockedBeforePip = controlsState.isLocked
-                                    enterPictureInPictureMode(createPipParams())
+                                    enterPictureInPictureMode(updatePipParams(enter = true))
                                 }
                             },
                             onSettingsClick = { showSettingsDialog() },
@@ -1366,31 +1372,20 @@ class PlayerActivity : AppCompatActivity() {
                 .setAllowCrossProtocolRedirects(true)
                 .setKeepPostFor302Redirects(true)
 
-            val mediaSourceFactory = if (streamInfo.drmScheme != null) {
-                val drmSessionManager = when (streamInfo.drmScheme) {
-                    "clearkey" -> {
-                        if (streamInfo.drmKeyId != null && streamInfo.drmKey != null) {
-                            createClearKeyDrmManager(streamInfo.drmKeyId, streamInfo.drmKey)
-                        } else if (streamInfo.drmLicenseUrl?.trimStart()?.startsWith("{") == true) {
-                            createClearKeyDrmManagerFromJwk(streamInfo.drmLicenseUrl)
-                        } else if (streamInfo.drmLicenseUrl?.startsWith("http", ignoreCase = true) == true) {
-                            createClearKeyServerDrmManager(streamInfo.drmLicenseUrl, headers)
-                        } else null
-                    }
-                    // Widevine/PlayReady are handled via MediaItem.DrmConfiguration below
-                    // (with forceDefaultLicenseUri so IPTV streams without manifest license URL work)
-                    "widevine", "playready" -> null
-                    else -> null
-                }
-
-                if (drmSessionManager != null) {
-                    DefaultMediaSourceFactory(this)
-                        .setDataSourceFactory(dataSourceFactory)
-                        .setDrmSessionManagerProvider { drmSessionManager }
-                } else {
-                    DefaultMediaSourceFactory(this)
-                        .setDataSourceFactory(dataSourceFactory)
-                }
+            val clearKeyMgr = when {
+                streamInfo.drmScheme != "clearkey" -> null
+                streamInfo.drmKeyId != null && streamInfo.drmKey != null ->
+                    createClearKeyDrmManager(streamInfo.drmKeyId, streamInfo.drmKey)
+                streamInfo.drmLicenseUrl?.trimStart()?.startsWith("{") == true ->
+                    createClearKeyDrmManagerFromJwk(streamInfo.drmLicenseUrl)
+                streamInfo.drmLicenseUrl?.startsWith("http", ignoreCase = true) == true ->
+                    createClearKeyServerDrmManager(streamInfo.drmLicenseUrl, headers)
+                else -> null
+            }
+            val mediaSourceFactory = if (clearKeyMgr != null) {
+                DefaultMediaSourceFactory(this)
+                    .setDataSourceFactory(dataSourceFactory)
+                    .setDrmSessionManagerProvider { clearKeyMgr }
             } else {
                 DefaultMediaSourceFactory(this)
                     .setDataSourceFactory(dataSourceFactory)
@@ -1412,13 +1407,16 @@ class PlayerActivity : AppCompatActivity() {
                     val uri = android.net.Uri.parse(streamInfo.url)
                     val mediaItemBuilder = MediaItem.Builder().setUri(uri)
 
-                    if (streamInfo.url.contains("m3u8", ignoreCase = true) ||
-                        streamInfo.url.contains("extension=m3u8", ignoreCase = true)) {
-                        mediaItemBuilder.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8)
+                    val urlLower = streamInfo.url.lowercase()
+                    when {
+                        urlLower.contains("m3u8") || urlLower.contains("extension=m3u8") ->
+                            mediaItemBuilder.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8)
+                        urlLower.contains(".mpd") || urlLower.contains("/dash/") || urlLower.contains("type=mpd") ->
+                            mediaItemBuilder.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_MPD)
+                        urlLower.contains(".ism") || urlLower.contains(".isml") ->
+                            mediaItemBuilder.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_SS)
                     }
 
-                    // Widevine and PlayReady: forceDefaultLicenseUri(true) ensures our
-                    // license URL is used even when the MPD manifest has no license URL (common in IPTV).
                     if ((streamInfo.drmScheme == "widevine" || streamInfo.drmScheme == "playready")
                         && streamInfo.drmLicenseUrl != null) {
                         val drmUuid = if (streamInfo.drmScheme == "widevine") C.WIDEVINE_UUID else C.PLAYREADY_UUID
@@ -1443,9 +1441,7 @@ class PlayerActivity : AppCompatActivity() {
                                 Player.STATE_READY -> {
                                     binding.progressBar.visibility = View.GONE
                                     binding.errorView.visibility = View.GONE
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
-                                        setPictureInPictureParams(createPipParams())
-                                    }
+                                    updatePipParams()
                                 }
                                 Player.STATE_BUFFERING -> {
                                     binding.progressBar.visibility = View.VISIBLE
@@ -1460,16 +1456,18 @@ class PlayerActivity : AppCompatActivity() {
                         }
 
                         override fun onIsPlayingChanged(isPlaying: Boolean) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
-                                setPictureInPictureParams(createPipParams())
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPipMode) {
+                                setPictureInPictureParams(updatePipParams(enter = false))
+                            }
+
+                            if (isInPipMode) {
+                                updatePipParams()
                             }
                         }
 
                         override fun onVideoSizeChanged(videoSize: VideoSize) {
                             super.onVideoSizeChanged(videoSize)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
-                                setPictureInPictureParams(createPipParams())
-                            }
+                            updatePipParams()
                         }
 
                         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -1540,27 +1538,6 @@ class PlayerActivity : AppCompatActivity() {
         binding.errorView.visibility = View.VISIBLE
     }
 
-
-    /** ClearKey via HTTP license server (e.g. Shaka, Axinom in clearkey mode).
-     *  Uses the W3C ClearKey UUID with an HTTP callback instead of inline keys. */
-    private fun createClearKeyServerDrmManager(licenseUrl: String, headers: Map<String, String>): DefaultDrmSessionManager? {
-        return try {
-            val clearKeyUuid = java.util.UUID.fromString("e2719d58-a985-b3c9-781a-b030af78d30e")
-            val factory = DefaultHttpDataSource.Factory()
-                .setUserAgent(headers["User-Agent"] ?: "LiveTVPro/1.0")
-                .setDefaultRequestProperties(headers)
-                .setConnectTimeoutMs(30000)
-                .setReadTimeoutMs(30000)
-                .setAllowCrossProtocolRedirects(true)
-            val cb = HttpMediaDrmCallback(licenseUrl, factory)
-            headers.forEach { (k, v) -> cb.setKeyRequestProperty(k, v) }
-            DefaultDrmSessionManager.Builder()
-                .setUuidAndExoMediaDrmProvider(clearKeyUuid, FrameworkMediaDrm.DEFAULT_PROVIDER)
-                .setMultiSession(false)
-                .build(cb)
-        } catch (e: Exception) { null }
-    }
-
     private fun createClearKeyDrmManager(keyIdHex: String, keyHex: String): DefaultDrmSessionManager? {
         return try {
             val clearKeyUuid = UUID.fromString("e2719d58-a985-b3c9-781a-b030af78d30e")
@@ -1610,6 +1587,22 @@ class PlayerActivity : AppCompatActivity() {
         } catch (e: Exception) {
             null
         }
+    }
+
+    private fun createClearKeyServerDrmManager(licenseUrl: String, headers: Map<String, String>): DefaultDrmSessionManager? {
+        return try {
+            val clearKeyUuid = UUID.fromString("e2719d58-a985-b3c9-781a-b030af78d30e")
+            val factory = DefaultHttpDataSource.Factory()
+                .setUserAgent(headers["User-Agent"] ?: "LiveTVPro/1.0")
+                .setDefaultRequestProperties(headers)
+                .setConnectTimeoutMs(30000).setReadTimeoutMs(30000)
+                .setAllowCrossProtocolRedirects(true)
+            val cb = HttpMediaDrmCallback(licenseUrl, factory)
+            headers.forEach { (k, v) -> cb.setKeyRequestProperty(k, v) }
+            DefaultDrmSessionManager.Builder()
+                .setUuidAndExoMediaDrmProvider(clearKeyUuid, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                .setMultiSession(false).build(cb)
+        } catch (e: Exception) { null }
     }
 
     private fun createWidevineDrmManager(licenseUrl: String, requestHeaders: Map<String, String>): DefaultDrmSessionManager? {
@@ -1796,9 +1789,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun enterPipMode() {
         binding.playerView.useController = false
         setSubtitleTextSizePiP()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            setPictureInPictureParams(createPipParams())
-        }
+        updatePipParams(enter = true)
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -1818,7 +1809,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun setupPipReceiver() {
         pipReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent == null || intent.action != ACTION_MEDIA_CONTROL) return
+                if (intent?.action != ACTION_MEDIA_CONTROL) return
                 val currentPlayer = player ?: return
                 val hasError = binding.errorView.visibility == View.VISIBLE
                 val hasEnded = currentPlayer.playbackState == Player.STATE_ENDED
@@ -1829,8 +1820,9 @@ class PlayerActivity : AppCompatActivity() {
                         } else {
                             currentPlayer.play()
                         }
+
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            setPictureInPictureParams(createPipParams())
+                            updatePipParams()
                         }
                     }
                     CONTROL_TYPE_PAUSE -> {
@@ -1839,8 +1831,9 @@ class PlayerActivity : AppCompatActivity() {
                         } else {
                             currentPlayer.pause()
                         }
+
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            setPictureInPictureParams(createPipParams())
+                            updatePipParams()
                         }
                     }
                     CONTROL_TYPE_REWIND -> {
@@ -1871,7 +1864,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun createPipParams(): PictureInPictureParams {
+    fun updatePipParams(enter: Boolean = false): PictureInPictureParams {
         val builder = PictureInPictureParams.Builder()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -1908,7 +1901,7 @@ class PlayerActivity : AppCompatActivity() {
 
         actions.add(RemoteAction(
             Icon.createWithResource(context, R.drawable.ic_skip_backward),
-            context.getString(R.string.rewind), context.getString(R.string.rewind_10s),
+            "Rewind", "Rewind 10s",
             PendingIntent.getBroadcast(context, CONTROL_TYPE_REWIND,
                 Intent(ACTION_MEDIA_CONTROL).setPackage(context.packageName)
                     .putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_REWIND),
@@ -1937,7 +1930,7 @@ class PlayerActivity : AppCompatActivity() {
 
         actions.add(RemoteAction(
             Icon.createWithResource(context, R.drawable.ic_skip_forward),
-            context.getString(R.string.forward), context.getString(R.string.forward_10s),
+            "Forward", "Forward 10s",
             PendingIntent.getBroadcast(context, CONTROL_TYPE_FORWARD,
                 Intent(ACTION_MEDIA_CONTROL).setPackage(context.packageName)
                     .putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_FORWARD),
