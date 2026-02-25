@@ -1004,7 +1004,7 @@ class FloatingPlayerService : Service() {
         btnMute?.setOnClickListener {
             val instance = activeInstances[instanceId] ?: return@setOnClickListener
             instance.isMuted = !instance.isMuted
-            player.volume = if (instance.isMuted) 0f else 1f
+            instance.player.volume = if (instance.isMuted) 0f else 1f
             btnMute.setImageResource(if (instance.isMuted) R.drawable.ic_volume_off else R.drawable.ic_volume_up)
         }
 
@@ -1017,21 +1017,22 @@ class FloatingPlayerService : Service() {
         }
 
         btnPlayPause?.setOnClickListener {
-            if (player.isPlaying) {
-                player.pause()
+            val p = activeInstances[instanceId]?.player ?: return@setOnClickListener
+            if (p.isPlaying) {
+                p.pause()
                 btnPlayPause.setImageResource(R.drawable.ic_play)
             } else {
-                player.play()
+                p.play()
                 btnPlayPause.setImageResource(R.drawable.ic_pause)
             }
         }
 
         btnSeekBack?.setOnClickListener {
-            player.seekBack()
+            activeInstances[instanceId]?.player?.seekBack()
         }
 
         btnSeekForward?.setOnClickListener {
-            player.seekForward()
+            activeInstances[instanceId]?.player?.seekForward()
         }
 
         player.addListener(object : Player.Listener {
