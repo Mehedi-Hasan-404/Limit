@@ -4,14 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:paddingStart="20dp"
-    android:paddingEnd="12dp"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp"
-    android:background="@drawable/ripple_item_bg"
+    android:gravity="center_vertical"
     android:clickable="true"
     android:focusable="true"
-    android:gravity="center_vertical"
+    android:background="?attr/selectableItemBackground"
+    android:paddingStart="16dp"
+    android:paddingEnd="4dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp"
     android:minHeight="48dp">
 
     <LinearLayout
@@ -24,8 +24,9 @@
             android:id="@+id/tvPrimary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@android:color/white"
-            android:textSize="15sp"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold"
             android:fontFamily="sans-serif-medium" />
 
         <TextView
@@ -33,18 +34,34 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#999999"
-            android:textSize="13sp"
-            android:layout_marginTop="2dp" />
+            android:textSize="11sp"
+            android:layout_marginTop="1dp" />
 
     </LinearLayout>
 
-    <androidx.compose.ui.platform.ComposeView
-        android:id="@+id/composeToggle"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_gravity="center_vertical"
-        android:layout_marginStart="8dp"
+    <!--
+        MaterialRadioButton — tinted via colorPrimary=#EF4444 from
+        ThemeOverlay.MaterialComponents.MaterialAlertDialog. No buttonTint needed.
+    -->
+    <com.google.android.material.radiobutton.MaterialRadioButton
+        android:id="@+id/radioToggle"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:clickable="false"
-        android:focusable="false" />
+        android:focusable="false"
+        android:gravity="center" />
+
+    <!--
+        MaterialCheckBox — tinted via colorSecondary=#EF4444 from
+        ThemeOverlay.MaterialComponents.MaterialAlertDialog. No buttonTint needed.
+    -->
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/checkToggle"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:gravity="center"
+        android:visibility="gone" />
 
 </LinearLayout>
