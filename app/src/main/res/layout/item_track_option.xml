@@ -1,29 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Row layout — exactly mirrors the workflow's dialog_quality.xml row pattern:
-    • Entire row is clickable (the row LinearLayout, not the widget)
-    • Label takes layout_weight=1 on the left
-    • Widget is fixed 48×48dp on the right, clickable=false focusable=false
-    • MaterialRadioButton  (android:id="@+id/radioToggle") shown when isRadio = true
-    • MaterialCheckBox     (android:id="@+id/checkToggle") shown when isRadio = false
--->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:gravity="center_vertical"
+    android:paddingStart="20dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp"
+    android:background="@drawable/ripple_item_bg"
     android:clickable="true"
     android:focusable="true"
-    android:background="?attr/selectableItemBackground"
-    android:paddingStart="16dp"
-    android:paddingEnd="4dp"
-    android:paddingTop="4dp"
-    android:paddingBottom="4dp"
+    android:gravity="center_vertical"
     android:minHeight="48dp">
 
-    <!-- Label column — weight=1 so it fills remaining space -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -34,9 +24,8 @@
             android:id="@+id/tvPrimary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:textSize="15sp"
             android:fontFamily="sans-serif-medium" />
 
         <TextView
@@ -44,40 +33,18 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#999999"
-            android:textSize="11sp"
-            android:layout_marginTop="1dp" />
+            android:textSize="13sp"
+            android:layout_marginTop="2dp" />
 
     </LinearLayout>
 
-    <!--
-        MaterialRadioButton — shown when isRadio = true.
-        buttonTint="#EF4444" matches workflow's android:buttonTint="#EF4444".
-        Fixed 48×48dp, clickable=false/focusable=false — row handles the click.
-    -->
-    <com.google.android.material.radiobutton.MaterialRadioButton
-        android:id="@+id/radioToggle"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/composeToggle"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="8dp"
         android:clickable="false"
-        android:focusable="false"
-        android:gravity="center"
-        android:buttonTint="#EF4444" />
-
-    <!--
-        MaterialCheckBox — shown when isRadio = false (visibility="gone" by default).
-        No buttonTint — picks up colorPrimary (#EF4444) from ThemeOverlay.LiveTVPro.Dialog.
-        Fixed 48×48dp matches the radio above for pixel-perfect alignment.
-        clickable=false/focusable=false — row handles the click.
-    -->
-    <com.google.android.material.checkbox.MaterialCheckBox
-        android:id="@+id/checkToggle"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:clickable="false"
-        android:focusable="false"
-        android:gravity="center"
-        android:buttonTint="#EF4444"
-        app:buttonTint="#EF4444"
-        android:visibility="gone" />
+        android:focusable="false" />
 
 </LinearLayout>
