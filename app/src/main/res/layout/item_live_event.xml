@@ -67,9 +67,9 @@
             android:visibility="gone"
             android:rotation="-45"
             android:translationX="-22dp"
-            android:translationY="22dp"
+            android:translationY="-22dp"
             android:focusable="false"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
         <TextView
