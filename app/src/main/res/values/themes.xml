@@ -102,22 +102,50 @@
         <item name="fontFamily">@font/bergen_sans</item>
     </style>
 
-    <!-- DIALOG THEME
-         Parent switched to ThemeOverlay.MaterialComponents.MaterialAlertDialog (MDC2).
-         In MDC2, MaterialCheckBox and MaterialRadioButton tint via colorSecondary/colorPrimary
-         directly — no buttonTint hacks, no custom drawables needed. -->
-    <style name="ThemeOverlay.LiveTVPro.Dialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+    <!-- DIALOG THEME — ensures title, list items and buttons are always clearly visible -->
+    <style name="ThemeOverlay.LiveTVPro.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorSurface">#1F1F1F</item>
         <item name="colorOnSurface">#FFFFFF</item>
         <item name="colorPrimary">#EF4444</item>
-        <item name="colorSecondary">#EF4444</item>
-        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorOutline">#666666</item>
         <item name="android:textColorPrimary">#FFFFFF</item>
         <item name="android:textColorSecondary">#CCCCCC</item>
         <item name="android:textColorHint">#888888</item>
         <item name="android:textColorAlertDialogListItem">#FFFFFF</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/Dialog.TitleText</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/Dialog.BodyText</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Dialog.ButtonText</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Dialog.ButtonText</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Dialog.ButtonText</item>
         <item name="android:fontFamily">@font/bergen_sans</item>
         <item name="fontFamily">@font/bergen_sans</item>
+    </style>
+
+    <style name="Dialog.TitleText" parent="MaterialAlertDialog.Material3.Title.Text">
+        <item name="android:fontFamily">@font/bergen_sans</item>
+        <item name="fontFamily">@font/bergen_sans</item>
+        <item name="android:textColor">#FFFFFF</item>
+    </style>
+
+    <style name="Dialog.BodyText" parent="MaterialAlertDialog.Material3.Body.Text">
+        <item name="android:fontFamily">@font/bergen_sans</item>
+        <item name="fontFamily">@font/bergen_sans</item>
+        <item name="android:textColor">#CCCCCC</item>
+    </style>
+
+    <style name="Dialog.ButtonText" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:fontFamily">@font/bergen_sans</item>
+        <item name="fontFamily">@font/bergen_sans</item>
+        <item name="android:textColor">#EF4444</item>
+        <item name="android:backgroundTint">#1AEF4444</item>
+        <item name="backgroundTint">#1AEF4444</item>
+        <item name="rippleColor">#33EF4444</item>
+        <item name="materialThemeOverlay">@style/Dialog.ButtonText.ColorOverlay</item>
+    </style>
+
+    <!-- Forces colorPrimary to red so Material3's internal ColorStateList resolves correctly -->
+    <style name="Dialog.ButtonText.ColorOverlay" parent="">
+        <item name="colorPrimary">#EF4444</item>
     </style>
 
 </resources>
