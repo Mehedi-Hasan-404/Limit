@@ -30,7 +30,7 @@
             android:padding="6dp"
             android:minHeight="85dp">
 
-            <!-- LEAGUE -->
+            <!-- League -->
             <ImageView
                 android:id="@+id/leagueLogo"
                 android:layout_width="28dp"
@@ -79,7 +79,7 @@
                 android:background="#3A3A3A"
                 app:layout_constraintTop_toBottomOf="@id/leagueLogo"/>
 
-            <!-- TEAM 1 -->
+            <!-- Team 1 -->
             <LinearLayout
                 android:id="@+id/team1Section"
                 android:layout_width="0dp"
@@ -114,7 +114,7 @@
                     android:textStyle="bold"/>
             </LinearLayout>
 
-            <!-- CENTER -->
+            <!-- Center -->
             <LinearLayout
                 android:id="@+id/centerSection"
                 android:layout_width="wrap_content"
@@ -126,19 +126,9 @@
                 app:layout_constraintTop_toTopOf="@id/team1Section"
                 app:layout_constraintBottom_toBottomOf="@id/team1Section"
                 app:layout_constraintStart_toEndOf="@id/team1Section"
-                app:layout_constraintEnd_toStartOf="@id/team2Section">
+                app:layout_constraintEnd_toStartOf="@id/team2Section"/>
 
-                <com.airbnb.lottie.LottieAnimationView
-                    android:id="@+id/liveAnimation"
-                    android:layout_width="80dp"
-                    android:layout_height="60dp"
-                    android:visibility="gone"
-                    app:lottie_autoPlay="true"
-                    app:lottie_loop="true"
-                    app:lottie_rawRes="@raw/live_animation"/>
-            </LinearLayout>
-
-            <!-- TEAM 2 -->
+            <!-- Team 2 -->
             <LinearLayout
                 android:id="@+id/team2Section"
                 android:layout_width="0dp"
@@ -174,22 +164,18 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- PRECISION RIBBON -->
+        <!-- CENTER-LEFT DIAGONAL RIBBON -->
         <TextView
             android:id="@+id/wrapperBadge"
-            android:layout_width="160dp"
-            android:layout_height="26dp"
-            android:layout_gravity="top|start"
-            android:layout_marginStart="-52dp"
-            android:layout_marginTop="0dp"
+            android:layout_width="170dp"
+            android:layout_height="28dp"
+            android:layout_gravity="center_vertical|start"
             android:rotation="-45"
-            android:pivotX="0dp"
-            android:pivotY="0dp"
             android:background="@drawable/bg_wrapper_badge"
             android:gravity="center"
             android:text="Hot"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:visibility="gone"/>
 
