@@ -30,6 +30,7 @@
             android:padding="6dp"
             android:minHeight="85dp">
 
+            <!-- LEAGUE -->
             <ImageView
                 android:id="@+id/leagueLogo"
                 android:layout_width="28dp"
@@ -135,31 +136,6 @@
                     app:lottie_autoPlay="true"
                     app:lottie_loop="true"
                     app:lottie_rawRes="@raw/live_animation"/>
-
-                <TextView
-                    android:id="@+id/matchTime"
-                    android:text="12:30 PM"
-                    android:textColor="#10B981"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:visibility="gone"/>
-
-                <TextView
-                    android:id="@+id/matchDate"
-                    android:layout_marginTop="2dp"
-                    android:text="Wed, 15 Jan 2026"
-                    android:textColor="#B0BEC5"
-                    android:textSize="12sp"
-                    android:visibility="gone"/>
-
-                <TextView
-                    android:id="@+id/statusText"
-                    android:layout_marginTop="2dp"
-                    android:text="Starts in 2h 30m"
-                    android:textColor="#EF4444"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:visibility="gone"/>
             </LinearLayout>
 
             <!-- TEAM 2 -->
@@ -198,22 +174,23 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- CORNER RIBBON -->
+        <!-- PRECISION RIBBON -->
         <TextView
             android:id="@+id/wrapperBadge"
-            android:layout_width="140dp"
+            android:layout_width="160dp"
             android:layout_height="26dp"
             android:layout_gravity="top|start"
-            android:layout_marginStart="-48dp"
-            android:layout_marginTop="16dp"
+            android:layout_marginStart="-52dp"
+            android:layout_marginTop="0dp"
             android:rotation="-45"
+            android:pivotX="0dp"
+            android:pivotY="0dp"
             android:background="@drawable/bg_wrapper_badge"
             android:gravity="center"
             android:text="Hot"
             android:textColor="#FFFFFF"
             android:textSize="11sp"
             android:textStyle="bold"
-            android:elevation="12dp"
             android:visibility="gone"/>
 
     </FrameLayout>
