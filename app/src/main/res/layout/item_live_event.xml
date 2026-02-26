@@ -67,8 +67,8 @@
             android:textStyle="bold"
             android:visibility="gone"
             android:rotation="-45"
-            android:translationX="-30dp"
-            android:translationY="30dp"
+            android:translationX="10dp"
+            android:translationY="-10dp"
             android:focusable="false"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
