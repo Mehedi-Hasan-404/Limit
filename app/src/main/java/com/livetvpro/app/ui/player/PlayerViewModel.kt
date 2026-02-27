@@ -57,7 +57,15 @@ class PlayerViewModel @Inject constructor(
             try {
                 val channels = when {
                     categoryId == "sports_slug" -> nativeDataRepository.getSports()
-                    categoryId.isNotEmpty() -> channelRepository.getChannelsByCategory(categoryId)
+                    categoryId.isNotEmpty() -> {
+                        // Check if this categoryId belongs to a playlist first
+                        val playlist = playlistRepository.getPlaylistById(categoryId)
+                        if (playlist != null) {
+                            loadChannelsFromPlaylist(playlist)
+                        } else {
+                            channelRepository.getChannelsByCategory(categoryId)
+                        }
+                    }
                     else -> withContext(Dispatchers.IO) { nativeDataRepository.getChannels() }
                 }
                 _channelListItems.postValue(channels)
