@@ -34,7 +34,6 @@ class LiveTVProApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         DeviceUtils.init(this)
-        DeviceUtils.applyUiModeOverride(preferencesManager.getUiMode())
         FloatingPlayerManager.initialize(preferencesManager)
         themeManager.applyTheme()
 
