@@ -41,9 +41,15 @@ class LiveTVProApplication : Application() {
         Coil.setImageLoader(
             ImageLoader.Builder(this)
                 .components { add(SvgDecoder.Factory()) }
-                .allowHardware(false)
+                // allowHardware defaults to true — GPU-backed bitmaps use far less heap
+                .memoryCache {
+                    coil.memory.MemoryCache.Builder(this)
+                        .maxSizePercent(0.30) // 30% of available app memory for logos
+                        .build()
+                }
                 .diskCachePolicy(CachePolicy.ENABLED)
                 .memoryCachePolicy(CachePolicy.ENABLED)
+                .crossfade(false)
                 .build()
         )
 
