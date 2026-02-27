@@ -618,7 +618,7 @@ class PlayerActivity : AppCompatActivity() {
             params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
             params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
             binding.playerContainer.layoutParams = params
-        }
+
             val hasRelated = relatedChannels.isNotEmpty() ||
                 (contentType == ContentType.EVENT && ::relatedEventsAdapter.isInitialized)
             if (hasRelated) {
