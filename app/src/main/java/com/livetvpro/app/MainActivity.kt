@@ -848,6 +848,16 @@ class MainActivity : AppCompatActivity() {
         super.onPostCreate(savedInstanceState)
         drawerToggle?.syncState()
     }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+
+        if (ev.action == android.view.MotionEvent.ACTION_DOWN
+            && ev.isFromSource(android.view.InputDevice.SOURCE_TOUCHSCREEN)
+        ) {
+            DeviceUtils.notifyTouchDetected()
+        }
+        return super.dispatchTouchEvent(ev)
+    }
 }
 
 private class CustomTypefaceSpan(private val typeface: Typeface) : android.text.style.TypefaceSpan("") {
