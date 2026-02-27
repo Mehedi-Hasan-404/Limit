@@ -82,6 +82,15 @@ class PlaylistsFragment : Fragment() {
         binding.recyclerViewPlaylists.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = playlistAdapter
+            addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                    if (dy > 0) {
+                        binding.fabAddPlaylist.hide()
+                    } else if (dy < 0) {
+                        binding.fabAddPlaylist.show()
+                    }
+                }
+            })
         }
     }
 
