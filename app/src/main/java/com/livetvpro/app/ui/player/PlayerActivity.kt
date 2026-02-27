@@ -18,11 +18,7 @@ import android.os.Looper
 import android.os.Parcelable
 import android.util.Rational
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toAndroidRect
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -48,7 +44,6 @@ import androidx.media3.exoplayer.drm.LocalMediaDrmCallback
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -73,7 +68,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.livetvpro.app.ui.player.compose.PlayerControls
 import com.livetvpro.app.ui.player.compose.PlayerControlsState
-import com.livetvpro.app.ui.player.compose.GestureState
 import android.media.AudioManager
 import com.livetvpro.app.ui.theme.AppTheme
 import com.livetvpro.app.utils.DeviceUtils
@@ -118,7 +112,6 @@ class PlayerActivity : AppCompatActivity() {
 
     private var pipReceiver: BroadcastReceiver? = null
     private var wasLockedBeforePip = false
-    private var pipRect: Rect? = null
     val isPipSupported by lazy {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             false
@@ -569,17 +562,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         controlsState.hide()
-        binding.playerControlsCompose.visibility = View.GONE
-
-        val pipParams = binding.playerContainer.layoutParams as ConstraintLayout.LayoutParams
-        pipParams.dimensionRatio = null
-        pipParams.topMargin = 0
-        pipParams.bottomMargin = 0
-        pipParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
-        pipParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
-        pipParams.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
-        pipParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
-        binding.playerContainer.layoutParams = pipParams
+        binding.playerControlsCompose.alpha = 0f
 
         setupPipReceiver()
 
@@ -596,15 +579,9 @@ class PlayerActivity : AppCompatActivity() {
 
         applyOrientationSettings(isLandscape)
 
-        binding.playerControlsCompose.visibility = View.VISIBLE
+        binding.playerControlsCompose.alpha = 1f
 
         if (!isLandscape) {
-            val params = binding.playerContainer.layoutParams as ConstraintLayout.LayoutParams
-            params.dimensionRatio = "H,16:9"
-            params.topMargin = 0
-            params.bottomToBottom = ConstraintLayout.LayoutParams.UNSET
-            binding.playerContainer.layoutParams = params
-
             val hasRelated = relatedChannels.isNotEmpty() ||
                 (contentType == ContentType.EVENT && ::relatedEventsAdapter.isInitialized)
             if (hasRelated) {
@@ -724,23 +701,6 @@ class PlayerActivity : AppCompatActivity() {
                             val landscapeLinksRecycler = binding.playerContainer.findViewById<RecyclerView>(R.id.exo_links_recycler)
                             val chipsVisible = controlsState.isVisible && !controlsState.isLocked && !showChannelList
                             landscapeLinksRecycler?.visibility = if (chipsVisible) View.VISIBLE else View.GONE
-                        }
-                    }
-
-                    DisposableEffect(Unit) {
-                        val listener = ViewTreeObserver.OnGlobalLayoutListener {
-                            val rect = Rect()
-                            val surface = binding.playerView.videoSurfaceView
-                            val target = surface ?: binding.playerView
-                            target.getGlobalVisibleRect(rect)
-                            if (!rect.isEmpty) {
-                                pipRect = rect
-                            }
-                        }
-                        binding.playerView.viewTreeObserver.addOnGlobalLayoutListener(listener)
-
-                        onDispose {
-                            binding.playerView.viewTreeObserver.removeOnGlobalLayoutListener(listener)
                         }
                     }
 
@@ -1230,9 +1190,6 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (isInPipMode && isFinishing) {
-            finish()
-        }
     }
 
     override fun onDestroy() {
@@ -1461,7 +1418,9 @@ class PlayerActivity : AppCompatActivity() {
                                 Player.STATE_READY -> {
                                     binding.progressBar.visibility = View.GONE
                                     binding.errorView.visibility = View.GONE
-                                    updatePipParams()
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
+                                        setPictureInPictureParams(updatePipParams())
+                                    }
                                 }
                                 Player.STATE_BUFFERING -> {
                                     binding.progressBar.visibility = View.VISIBLE
@@ -1476,18 +1435,16 @@ class PlayerActivity : AppCompatActivity() {
                         }
 
                         override fun onIsPlayingChanged(isPlaying: Boolean) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPipMode) {
-                                setPictureInPictureParams(updatePipParams(enter = false))
-                            }
-
-                            if (isInPipMode) {
-                                updatePipParams()
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
+                                setPictureInPictureParams(updatePipParams())
                             }
                         }
 
                         override fun onVideoSizeChanged(videoSize: VideoSize) {
                             super.onVideoSizeChanged(videoSize)
-                            updatePipParams()
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported) {
+                                setPictureInPictureParams(updatePipParams())
+                            }
                         }
 
                         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -1816,7 +1773,9 @@ class PlayerActivity : AppCompatActivity() {
     private fun enterPipMode() {
         binding.playerView.useController = false
         setSubtitleTextSizePiP()
-        updatePipParams(enter = true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            setPictureInPictureParams(updatePipParams(enter = true))
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -1849,7 +1808,7 @@ class PlayerActivity : AppCompatActivity() {
                         }
 
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            updatePipParams()
+                            setPictureInPictureParams(updatePipParams())
                         }
                     }
                     CONTROL_TYPE_PAUSE -> {
@@ -1860,7 +1819,7 @@ class PlayerActivity : AppCompatActivity() {
                         }
 
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            updatePipParams()
+                            setPictureInPictureParams(updatePipParams())
                         }
                     }
                     CONTROL_TYPE_REWIND -> {
@@ -1899,27 +1858,43 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val isPlaying = player?.isPlaying == true
-            builder.setAutoEnterEnabled(isPlaying)
-            builder.setSeamlessResizeEnabled(isPlaying)
+            builder.setAutoEnterEnabled(player?.isPlaying == true)
+            builder.setSeamlessResizeEnabled(true)
         }
 
         val isPaused = player?.isPlaying != true
         builder.setActions(createPipActions(this, isPaused))
-        builder.setSourceRectHint(pipRect)
 
         player?.videoFormat?.let { format ->
-            val height = format.height
             val width = format.width
-            if (height > 0 && width > 0) {
-                val rational = Rational(width, height).toFloat()
-                if (rational in 0.42..2.38) {
-                    builder.setAspectRatio(Rational(width, height))
+            val height = format.height
+            if (width > 0 && height > 0) {
+                val rational = Rational(width, height)
+                if (rational.toFloat() in 0.42f..2.38f) {
+                    builder.setAspectRatio(rational)
+                    builder.setSourceRectHint(calculateSourceRect(rational))
                 }
             }
         }
 
         return builder.build()
+    }
+
+    private fun calculateSourceRect(aspectRatio: Rational): Rect {
+        val viewWidth = binding.playerView.width.toFloat()
+        val viewHeight = binding.playerView.height.toFloat()
+        if (viewWidth == 0f || viewHeight == 0f) return Rect()
+        val videoAspect = aspectRatio.toFloat()
+        val viewAspect = viewWidth / viewHeight
+        return if (viewAspect < videoAspect) {
+            val height = viewWidth / videoAspect
+            val top = ((viewHeight - height) / 2).toInt()
+            Rect(0, top, viewWidth.toInt(), (height + top).toInt())
+        } else {
+            val width = viewHeight * videoAspect
+            val left = ((viewWidth - width) / 2).toInt()
+            Rect(left, 0, (width + left).toInt(), viewHeight.toInt())
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
