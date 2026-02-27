@@ -590,6 +590,16 @@ class PlayerActivity : AppCompatActivity() {
         controlsState.hide()
         binding.playerControlsCompose.visibility = View.GONE
 
+        val pipParams = binding.playerContainer.layoutParams as ConstraintLayout.LayoutParams
+        pipParams.dimensionRatio = null
+        pipParams.topMargin = 0
+        pipParams.bottomMargin = 0
+        pipParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+        pipParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+        pipParams.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+        pipParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+        binding.playerContainer.layoutParams = pipParams
+
         setupPipReceiver()
 
         super.onPictureInPictureModeChanged(true, newConfig)
@@ -608,6 +618,12 @@ class PlayerActivity : AppCompatActivity() {
         binding.playerControlsCompose.visibility = View.VISIBLE
 
         if (!isLandscape) {
+            val params = binding.playerContainer.layoutParams as ConstraintLayout.LayoutParams
+            params.dimensionRatio = "H,16:9"
+            params.topMargin = 0
+            params.bottomToBottom = ConstraintLayout.LayoutParams.UNSET
+            binding.playerContainer.layoutParams = params
+
             val hasRelated = relatedChannels.isNotEmpty() ||
                 (contentType == ContentType.EVENT && ::relatedEventsAdapter.isInitialized)
             if (hasRelated) {
@@ -1231,8 +1247,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        // If onStop fires while still in PiP mode, the user closed (X) the PiP window
-        if (isInPipMode) {
+        if (isInPipMode && pendingIntentAfterPip == null) {
             finish()
         }
     }
