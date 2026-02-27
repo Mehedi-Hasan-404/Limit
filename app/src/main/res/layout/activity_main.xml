@@ -38,6 +38,8 @@
                         android:textSize="20sp"
                         android:textStyle="bold"
                         android:fontFamily="@font/bergen_sans"
+                        android:maxLines="1"
+                        android:ellipsize="middle"
                         android:layout_marginStart="0dp"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintEnd_toStartOf="@id/btn_search"
