@@ -201,23 +201,9 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private var pendingIntentAfterPip: Intent? = null
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-
-        if (isInPipMode) {
-            pendingIntentAfterPip = intent
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try {
-                    val am = getSystemService(android.app.ActivityManager::class.java)
-                    am?.moveTaskToFront(taskId, 0)
-                } catch (e: Exception) { }
-            }
-            return
-        }
-
         handleNewIntent(intent)
     }
 
@@ -571,11 +557,6 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             exitPipUIMode(newConfig)
-
-            pendingIntentAfterPip?.let { pending ->
-                pendingIntentAfterPip = null
-                handleNewIntent(pending)
-            }
             return
         }
 
@@ -650,8 +631,11 @@ class PlayerActivity : AppCompatActivity() {
         if (!DeviceUtils.isTvDevice && isPipSupported && player?.isPlaying == true) {
             isEnteringPip = true
             wasLockedBeforePip = controlsState.isLocked
-            prepareUIForPip()
-            enterPictureInPictureMode(updatePipParams(enter = true))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                enterPictureInPictureMode(updatePipParams(enter = true))
+            } else {
+                enterPictureInPictureMode()
+            }
         }
         super.onUserLeaveHint()
     }
@@ -778,7 +762,6 @@ class PlayerActivity : AppCompatActivity() {
                             onPipClick = {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                     wasLockedBeforePip = controlsState.isLocked
-                                    prepareUIForPip()
                                     enterPictureInPictureMode(updatePipParams(enter = true))
                                 }
                             },
@@ -1247,7 +1230,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (isInPipMode && pendingIntentAfterPip == null) {
+        if (isInPipMode && isFinishing) {
             finish()
         }
     }
