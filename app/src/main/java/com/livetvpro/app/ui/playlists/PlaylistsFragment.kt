@@ -84,6 +84,10 @@ class PlaylistsFragment : Fragment() {
             adapter = playlistAdapter
             addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                    if (isFabExpanded) {
+                        collapseFab()
+                        return
+                    }
                     if (dy > 0) {
                         binding.fabAddPlaylist.hide()
                     } else if (dy < 0) {
@@ -130,7 +134,7 @@ class PlaylistsFragment : Fragment() {
             visibility = View.GONE
             setOnClickListener { collapseFab() }
         }
-        rootLayout.addView(scrimView, 0)
+        rootLayout.addView(scrimView)
 
         fabFileContainer = createFabWithLabel(context, rootLayout, "Add Playlist File", R.drawable.ic_folder, isTopItem = true) {
             collapseFab()
