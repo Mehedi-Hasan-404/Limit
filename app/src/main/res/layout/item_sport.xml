@@ -22,7 +22,7 @@
             android:id="@+id/sportLogo"
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:scaleType="centerCrop"
+            android:scaleType="fitCenter"
             android:src="@drawable/ic_channel_placeholder"
             android:focusable="false"
             app:layout_constraintStart_toStartOf="parent"
