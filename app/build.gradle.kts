@@ -207,9 +207,11 @@ dependencies {
     implementation("com.google.dagger:hilt-android:$hiltVersion")
     ksp("com.google.dagger:hilt-compiler:$hiltVersion")
 
-    // Image Loading - Coil (built-in SVG support, works correctly with circleCrop)
-    implementation("io.coil-kt:coil:2.7.0")
-    implementation("io.coil-kt:coil-svg:2.7.0")
+    // Image Loading - Glide with SVG support
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    ksp("com.github.bumptech.glide:ksp:4.16.0")
+    implementation("com.github.bumptech.glide:okhttp3-integration:4.16.0")
+    implementation("com.caverock:androidsvg-aar:1.4")
 
     // RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.4.0")
