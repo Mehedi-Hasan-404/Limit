@@ -572,6 +572,11 @@ class MainActivity : AppCompatActivity() {
                     drawerLayout?.closeDrawer(GravityCompat.START)
                     false
                 }
+                R.id.nav_ui_mode -> {
+                    drawerLayout?.closeDrawer(GravityCompat.START)
+                    drawerLayout?.postDelayed({ showUiModeDialog() }, 250)
+                    false
+                }
                 R.id.nav_exit -> {
                     drawerLayout?.closeDrawer(GravityCompat.START)
                     drawerLayout?.postDelayed({ finishAffinity() }, 250)
