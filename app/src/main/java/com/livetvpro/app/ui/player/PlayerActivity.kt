@@ -607,6 +607,18 @@ class PlayerActivity : AppCompatActivity() {
         binding.playerControlsCompose.visibility = View.VISIBLE
 
         if (!isLandscape) {
+            val params = binding.playerContainer.layoutParams as ConstraintLayout.LayoutParams
+            params.width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+            params.height = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+            params.dimensionRatio = "H,16:9"
+            params.topMargin = 0
+            params.bottomMargin = 0
+            params.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+            params.bottomToBottom = ConstraintLayout.LayoutParams.UNSET
+            params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+            params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            binding.playerContainer.layoutParams = params
+        }
             val hasRelated = relatedChannels.isNotEmpty() ||
                 (contentType == ContentType.EVENT && ::relatedEventsAdapter.isInitialized)
             if (hasRelated) {
@@ -1815,6 +1827,19 @@ class PlayerActivity : AppCompatActivity() {
         binding.messageBannerContainer.visibility = View.GONE
         binding.playerControlsCompose.visibility = View.GONE
         controlsState.hide()
+
+        val params = binding.playerContainer.layoutParams as ConstraintLayout.LayoutParams
+        params.width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+        params.height = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+        params.dimensionRatio = null
+        params.topMargin = 0
+        params.bottomMargin = 0
+        params.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+        params.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+        params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+        params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+        binding.playerContainer.layoutParams = params
+        binding.playerContainer.requestLayout()
     }
 
     @SuppressLint("NewApi")
