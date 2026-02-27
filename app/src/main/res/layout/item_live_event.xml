@@ -105,7 +105,7 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="Team 1"
-                android:scaleType="centerCrop"
+                android:scaleType="fitCenter"
                 android:focusable="false"
                 app:shapeAppearanceOverlay="@style/CircleImageView"
                 tools:srcCompat="@tools:sample/avatars" />
@@ -211,7 +211,7 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="Team 2"
-                android:scaleType="centerCrop"
+                android:scaleType="fitCenter"
                 android:focusable="false"
                 app:shapeAppearanceOverlay="@style/CircleImageView"
                 tools:srcCompat="@tools:sample/avatars" />
