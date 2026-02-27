@@ -28,10 +28,6 @@ class PreferencesManager @Inject constructor(
         private const val KEY_FLOATING_PLAYER_HEIGHT = "floating_player_height"
         private const val KEY_FLOATING_PLAYER_X = "floating_player_x"
         private const val KEY_FLOATING_PLAYER_Y = "floating_player_y"
-        const val KEY_UI_MODE = "ui_mode"
-        const val UI_MODE_AUTO = "auto"
-        const val UI_MODE_TV = "tv"
-        const val UI_MODE_PHONE_TABLET = "phone_tablet"
     }
 
     // Existing preference methods (keep your existing methods here)
@@ -109,14 +105,6 @@ class PreferencesManager @Inject constructor(
     }
 
     // Clear all preferences
-    fun getUiMode(): String {
-        return prefs.getString(KEY_UI_MODE, UI_MODE_AUTO) ?: UI_MODE_AUTO
-    }
-
-    fun setUiMode(mode: String) {
-        prefs.edit().putString(KEY_UI_MODE, mode).apply()
-    }
-
     fun clearAll() {
         prefs.edit().clear().apply()
     }
