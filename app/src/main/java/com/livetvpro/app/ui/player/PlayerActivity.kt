@@ -604,6 +604,8 @@ class PlayerActivity : AppCompatActivity() {
 
         applyOrientationSettings(isLandscape)
 
+        binding.playerControlsCompose.visibility = View.VISIBLE
+
         if (!isLandscape) {
             val hasRelated = relatedChannels.isNotEmpty() ||
                 (contentType == ContentType.EVENT && ::relatedEventsAdapter.isInitialized)
@@ -631,6 +633,7 @@ class PlayerActivity : AppCompatActivity() {
         if (!DeviceUtils.isTvDevice && isPipSupported && player?.isPlaying == true) {
             isEnteringPip = true
             wasLockedBeforePip = controlsState.isLocked
+            prepareUIForPip()
             enterPictureInPictureMode(updatePipParams(enter = true))
         }
         super.onUserLeaveHint()
@@ -726,7 +729,9 @@ class PlayerActivity : AppCompatActivity() {
                     DisposableEffect(Unit) {
                         val listener = ViewTreeObserver.OnGlobalLayoutListener {
                             val rect = Rect()
-                            binding.playerView.getGlobalVisibleRect(rect)
+                            val surface = binding.playerView.videoSurfaceView
+                            val target = surface ?: binding.playerView
+                            target.getGlobalVisibleRect(rect)
                             if (!rect.isEmpty) {
                                 pipRect = rect
                             }
@@ -756,6 +761,7 @@ class PlayerActivity : AppCompatActivity() {
                             onPipClick = {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                     wasLockedBeforePip = controlsState.isLocked
+                                    prepareUIForPip()
                                     enterPictureInPictureMode(updatePipParams(enter = true))
                                 }
                             },
@@ -1801,6 +1807,14 @@ class PlayerActivity : AppCompatActivity() {
     private fun setSubtitleTextSizePiP() {
         val subtitleView = binding.playerView.subtitleView ?: return
         subtitleView.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 2)
+    }
+
+    private fun prepareUIForPip() {
+        binding.relatedChannelsSection.visibility = View.GONE
+        binding.linksSection.visibility = View.GONE
+        binding.messageBannerContainer.visibility = View.GONE
+        binding.playerControlsCompose.visibility = View.GONE
+        controlsState.hide()
     }
 
     @SuppressLint("NewApi")
