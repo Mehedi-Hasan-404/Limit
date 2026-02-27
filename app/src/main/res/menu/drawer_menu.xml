@@ -57,6 +57,11 @@
             android:title="Share App" />
 
         <item
+            android:id="@+id/nav_ui_mode"
+            android:icon="@drawable/ic_settings"
+            android:title="UI Mode" />
+
+        <item
             android:id="@+id/nav_exit"
             android:icon="@drawable/ic_exit"
             android:title="Exit" />
