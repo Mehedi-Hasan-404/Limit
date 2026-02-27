@@ -301,11 +301,6 @@ class MainActivity : AppCompatActivity() {
                     drawerLayout?.closeDrawer(GravityCompat.START)
                     false
                 }
-                R.id.nav_ui_mode -> {
-                    drawerLayout?.closeDrawer(GravityCompat.START)
-                    drawerLayout?.postDelayed({ showUiModeDialog() }, 250)
-                    false
-                }
                 R.id.nav_exit -> {
                     drawerLayout?.closeDrawer(GravityCompat.START)
                     drawerLayout?.postDelayed({ finishAffinity() }, 250)
@@ -572,11 +567,6 @@ class MainActivity : AppCompatActivity() {
                     drawerLayout?.closeDrawer(GravityCompat.START)
                     false
                 }
-                R.id.nav_ui_mode -> {
-                    drawerLayout?.closeDrawer(GravityCompat.START)
-                    drawerLayout?.postDelayed({ showUiModeDialog() }, 250)
-                    false
-                }
                 R.id.nav_exit -> {
                     drawerLayout?.closeDrawer(GravityCompat.START)
                     drawerLayout?.postDelayed({ finishAffinity() }, 250)
@@ -706,43 +696,6 @@ class MainActivity : AppCompatActivity() {
         phoneBtnFavorites = btnFavorites
         phoneSearchView = searchView
         phoneBtnSearchClear = btnSearchClear
-    }
-
-    private fun showUiModeDialog() {
-        val options = arrayOf("Auto (Detect device)", "TV UI", "Phone / Tablet UI")
-        val keys = arrayOf(
-            PreferencesManager.UI_MODE_AUTO,
-            PreferencesManager.UI_MODE_TV,
-            PreferencesManager.UI_MODE_PHONE_TABLET
-        )
-        val current = preferencesManager.getUiMode()
-        val checkedIndex = keys.indexOf(current).takeIf { it >= 0 } ?: 0
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle("UI Mode")
-            .setSingleChoiceItems(options, checkedIndex) { dialog, which ->
-                val selected = keys[which]
-                if (selected != current) {
-                    preferencesManager.setUiMode(selected)
-                    dialog.dismiss()
-                    MaterialAlertDialogBuilder(this)
-                        .setTitle("Restart Required")
-                        .setMessage("The app needs to restart to apply the new UI mode.")
-                        .setCancelable(false)
-                        .setPositiveButton("Restart") { _, _ ->
-                            val intent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                            }
-                            startActivity(intent)
-                            android.os.Process.killProcess(android.os.Process.myPid())
-                        }
-                        .show()
-                } else {
-                    dialog.dismiss()
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 
     private fun showCopyrightDialog() {
