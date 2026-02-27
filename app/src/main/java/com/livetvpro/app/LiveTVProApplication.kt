@@ -1,10 +1,6 @@
 package com.livetvpro.app
 
 import android.app.Application
-import coil.Coil
-import coil.ImageLoader
-import coil.decode.SvgDecoder
-import coil.request.CachePolicy
 import com.livetvpro.app.data.local.PreferencesManager
 import com.livetvpro.app.data.local.ThemeManager
 import com.livetvpro.app.data.repository.NativeDataRepository
@@ -37,22 +33,6 @@ class LiveTVProApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-
-        Coil.setImageLoader(
-            ImageLoader.Builder(this)
-                .components { add(SvgDecoder.Factory()) }
-                // allowHardware defaults to true — GPU-backed bitmaps use far less heap
-                .memoryCache {
-                    coil.memory.MemoryCache.Builder(this)
-                        .maxSizePercent(0.30) // 30% of available app memory for logos
-                        .build()
-                }
-                .diskCachePolicy(CachePolicy.ENABLED)
-                .memoryCachePolicy(CachePolicy.ENABLED)
-                .crossfade(false)
-                .build()
-        )
-
         DeviceUtils.init(this)
         FloatingPlayerManager.initialize(preferencesManager)
         themeManager.applyTheme()
