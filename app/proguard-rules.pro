@@ -105,6 +105,12 @@
     **[] $VALUES;
     public *;
 }
+-keep class com.bumptech.glide.** { *; }
+-dontwarn com.bumptech.glide.**
+
+# AndroidSVG
+-keep class com.caverock.androidsvg.** { *; }
+-dontwarn com.caverock.androidsvg.**
 
 # Firebase
 -keep class com.google.firebase.** { *; }
