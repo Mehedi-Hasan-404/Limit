@@ -71,17 +71,6 @@ object DeviceUtils {
         hasTouchInput = hasPhysicalTouchInputDevice()
     }
 
-    fun applyUiModeOverride(mode: String) {
-        when (mode) {
-            "tv" -> deviceType = DeviceType.TV
-            "phone_tablet" -> {
-                val isTv = deviceType == DeviceType.TV
-                if (isTv) deviceType = DeviceType.PHONE
-            }
-            else -> {}
-        }
-    }
-
     fun notifyTouchDetected() {
         if (!hasTouchInput) {
             hasTouchInput = true
