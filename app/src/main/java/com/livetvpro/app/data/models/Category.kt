@@ -177,9 +177,10 @@ data class ExternalLiveEvent(
 
         val mappedLinks = links.map { extLink ->
             LiveEventLink(
-                quality = extLink.name,
-                url     = extLink.link,
-                cookie  = buildLinkMeta(extLink)
+                quality       = extLink.name,
+                url           = extLink.link,
+                drmScheme     = extLink.scheme.toDrmSchemeString(),
+                drmLicenseUrl = extLink.api.ifBlank { null }
             )
         }
 
@@ -204,14 +205,20 @@ data class ExternalLiveEvent(
         )
     }
 
+    /**
+     * date ("dd/MM/yyyy") + time ("HH:mm:ss") are already UTC.
+     * Parse them as UTC and output as ISO-8601 UTC string.
+     */
     private fun combineDateTime(date: String, time: String): String {
         return try {
             val inputFmt = java.text.SimpleDateFormat(
                 "dd/MM/yyyy HH:mm:ss", java.util.Locale.getDefault()
             ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+
             val outputFmt = java.text.SimpleDateFormat(
                 "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()
             ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+
             val parsed = inputFmt.parse("$date $time") ?: return ""
             outputFmt.format(parsed)
         } catch (e: Exception) {
@@ -219,8 +226,16 @@ data class ExternalLiveEvent(
         }
     }
 
-    private fun buildLinkMeta(link: ExternalEventLink): String? {
-        if (link.scheme == 0 && link.api.isBlank() && link.tokenApi.isBlank()) return null
-        return "scheme=${link.scheme};api=${link.api};tokenApi=${link.tokenApi}"
+    /**
+     * Maps scheme int → ExoPlayer DRM scheme string.
+     *   0 = ClearKey
+     *   1 = Widevine
+     *   2 = PlayReady
+     */
+    private fun Int.toDrmSchemeString(): String? = when (this) {
+        0    -> "clearkey"
+        1    -> "widevine"
+        2    -> "playready"
+        else -> null
     }
 }
