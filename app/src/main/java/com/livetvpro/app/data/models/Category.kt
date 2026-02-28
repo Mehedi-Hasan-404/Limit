@@ -242,6 +242,7 @@ data class NewExternalEventRow(
     @SerializedName("event_cat")     val eventCat: String = "",
     @SerializedName("event_name")    val eventName: String = "",
     @SerializedName("event_time")    val eventTime: String = "",
+    @SerializedName("event_end_time") val eventEndTime: String? = null,
     @SerializedName("channel_title") val channelTitle: String = "",
     @SerializedName("stream_url")    val streamUrl: String = "",
     @SerializedName("keyid")         val keyId: String? = null,
@@ -292,9 +293,9 @@ fun List<NewExternalEventRow>.toGroupedLiveEvents(): List<LiveEvent> {
                 team2Name         = first.eventTitle,
                 team2Logo         = first.teamBLogo,
                 startTime         = first.eventTime.toIso8601Utc(),
-                // API has no end_time — default to startTime + 3 hours so the
-                // event stays in the LIVE window rather than immediately becoming RECENT.
-                endTime           = first.eventTime.toIso8601UtcPlusHours(3),
+                // Use real end time from API; fall back to startTime + 3h if missing
+                endTime           = first.eventEndTime?.toIso8601Utc()
+                                    ?: first.eventTime.toIso8601UtcPlusHours(3),
                 isLive            = false,
                 links             = links,
                 title             = first.eventName,
