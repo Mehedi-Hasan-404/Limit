@@ -7,9 +7,10 @@ import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import com.google.gson.Gson
 import com.livetvpro.app.data.models.Category
 import com.livetvpro.app.data.models.Channel
-import com.livetvpro.app.data.models.ExternalLiveEvent
+import com.livetvpro.app.data.models.NewExternalEventRow
 import com.livetvpro.app.data.models.LiveEvent
 import com.livetvpro.app.data.models.EventCategory
+import com.livetvpro.app.data.models.toGroupedLiveEvents
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -321,16 +322,19 @@ class NativeDataRepository @Inject constructor(
     fun isDataLoaded(): Boolean = checkDataLoaded()
 
     // ──────────────────────────────────────────────────────────────
-    // External event API (new format, fetched from event_data_url)
+    // External event API (new flat-row format, grouped by event_id)
+    // Remote Config key: event_data_url
     // ──────────────────────────────────────────────────────────────
 
     fun hasExternalEventUrl(): Boolean = externalEventDataUrl.isNotEmpty()
 
     /**
-     * Fetches events from the external URL (Remote Config key: "event_data_url")
-     * and returns them converted to [LiveEvent].
-     * Falls back to the last in-memory cached response on network failure.
-     * Returns null when no external URL is configured (use native events only).
+     * Fetches the flat event rows from [externalEventDataUrl], groups them by
+     * [NewExternalEventRow.eventId] and returns one [LiveEvent] per unique event,
+     * each with multiple [LiveEventLink]s (one per channel/stream row).
+     *
+     * Falls back to in-memory cached JSON on network failure.
+     * Returns null when no external URL is configured → caller uses native events.
      */
     suspend fun getExternalLiveEvents(): List<LiveEvent>? = withContext(Dispatchers.IO) {
         if (externalEventDataUrl.isBlank()) return@withContext null
@@ -355,9 +359,9 @@ class NativeDataRepository @Inject constructor(
         }
 
         return@withContext try {
-            gson.fromJson(jsonToUse, Array<ExternalLiveEvent>::class.java)
-                .filter { it.visible }
-                .map { it.toLiveEvent() }
+            gson.fromJson(jsonToUse, Array<NewExternalEventRow>::class.java)
+                .toList()
+                .toGroupedLiveEvents()
         } catch (e: Exception) {
             emptyList()
         }
