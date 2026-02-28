@@ -7,6 +7,7 @@ import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import com.google.gson.Gson
 import com.livetvpro.app.data.models.Category
 import com.livetvpro.app.data.models.Channel
+import com.livetvpro.app.data.models.ExternalLiveEvent
 import com.livetvpro.app.data.models.LiveEvent
 import com.livetvpro.app.data.models.EventCategory
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,6 +28,8 @@ class NativeDataRepository @Inject constructor(
     private val gson: Gson
 ) {
     companion object {
+        private const val REMOTE_CONFIG_EVENT_DATA_URL = "event_data_url"
+
         private var isNativeLibraryLoaded = false
 
         init {
@@ -155,10 +158,12 @@ class NativeDataRepository @Inject constructor(
     private val remoteConfig = Firebase.remoteConfig
 
     // In-memory only cache — lives only while the process is alive.
-    // Automatically wiped when the app is closed/killed. No cleanup needed.
     private var inMemoryJson: String = ""
     private var inMemoryConfigUrl: String = ""
 
+    // ── External event data (new API format, Remote Config key: event_data_url) ──
+    private var externalEventDataUrl: String = ""
+    private var inMemoryExternalEventsJson: String = ""
 
     init {
         try {
@@ -166,10 +171,13 @@ class NativeDataRepository @Inject constructor(
                 minimumFetchIntervalInSeconds = if (isDebugBuild()) 0L else 3600L
             }
             remoteConfig.setConfigSettingsAsync(configSettings)
-            
+
             try {
                 val configKey = getRemoteConfigKey()
-                remoteConfig.setDefaultsAsync(mapOf(configKey to ""))
+                remoteConfig.setDefaultsAsync(mapOf(
+                    configKey to "",
+                    REMOTE_CONFIG_EVENT_DATA_URL to ""
+                ))
             } catch (error: Exception) {
             }
         } catch (error: Exception) {
@@ -178,16 +186,21 @@ class NativeDataRepository @Inject constructor(
 
     suspend fun fetchRemoteConfig(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val activated = remoteConfig.fetchAndActivate().await()
+            remoteConfig.fetchAndActivate().await()
             val configKey = getRemoteConfigKey()
             val configUrl = remoteConfig.getString(configKey)
+
+            // Read optional external event data URL
+            val eventUrl = remoteConfig.getString(REMOTE_CONFIG_EVENT_DATA_URL)
+            if (eventUrl.isNotEmpty()) {
+                externalEventDataUrl = eventUrl
+            }
 
             if (configUrl.isNotEmpty()) {
                 storeConfigUrl(configUrl)
                 inMemoryConfigUrl = configUrl
                 return@withContext true
             } else {
-                // Network ok but no URL — fall back to in-memory if available
                 if (inMemoryConfigUrl.isNotEmpty()) {
                     storeConfigUrl(inMemoryConfigUrl)
                     return@withContext true
@@ -195,7 +208,6 @@ class NativeDataRepository @Inject constructor(
                 return@withContext false
             }
         } catch (error: Exception) {
-            // Network failed — fall back to in-memory config URL if available
             if (inMemoryConfigUrl.isNotEmpty()) {
                 storeConfigUrl(inMemoryConfigUrl)
                 return@withContext true
@@ -210,26 +222,25 @@ class NativeDataRepository @Inject constructor(
                 if (!checkIntegrityAndEnabled()) {
                     return@withContext restoreFromCache()
                 }
-                
+
                 val dataUrl = retrieveDataUrl()
                 if (dataUrl.isBlank()) {
                     return@withContext restoreFromCache()
                 }
-                
+
                 val request = Request.Builder().url(dataUrl).build()
                 httpClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
                         return@withContext restoreFromCache()
                     }
-                    
+
                     val responseBody = response.body?.string()
                     if (responseBody.isNullOrBlank()) {
                         return@withContext restoreFromCache()
                     }
-                    
+
                     val success = storeJsonData(responseBody)
                     if (success) {
-                        // Store in memory only — wiped automatically when process dies
                         inMemoryJson = responseBody
                         return@withContext true
                     } else {
@@ -242,10 +253,6 @@ class NativeDataRepository @Inject constructor(
         }
     }
 
-    /**
-     * Restores data from disk cache into native memory after process death.
-     * Returns true if cache exists and was loaded successfully, false otherwise.
-     */
     private fun restoreFromCache(): Boolean {
         return try {
             if (inMemoryJson.isBlank()) return false
@@ -311,8 +318,49 @@ class NativeDataRepository @Inject constructor(
         }
     }
 
-    fun isDataLoaded(): Boolean {
-        return checkDataLoaded()
+    fun isDataLoaded(): Boolean = checkDataLoaded()
+
+    // ──────────────────────────────────────────────────────────────
+    // External event API (new format, fetched from event_data_url)
+    // ──────────────────────────────────────────────────────────────
+
+    fun hasExternalEventUrl(): Boolean = externalEventDataUrl.isNotEmpty()
+
+    /**
+     * Fetches events from the external URL (Remote Config key: "event_data_url")
+     * and returns them converted to [LiveEvent].
+     * Falls back to the last in-memory cached response on network failure.
+     * Returns null when no external URL is configured (use native events only).
+     */
+    suspend fun getExternalLiveEvents(): List<LiveEvent>? = withContext(Dispatchers.IO) {
+        if (externalEventDataUrl.isBlank()) return@withContext null
+
+        val jsonToUse: String = try {
+            val request = Request.Builder().url(externalEventDataUrl).build()
+            httpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string()
+                    if (!body.isNullOrBlank()) {
+                        inMemoryExternalEventsJson = body
+                        body
+                    } else {
+                        inMemoryExternalEventsJson.ifBlank { return@withContext emptyList() }
+                    }
+                } else {
+                    inMemoryExternalEventsJson.ifBlank { return@withContext emptyList() }
+                }
+            }
+        } catch (e: Exception) {
+            inMemoryExternalEventsJson.ifBlank { return@withContext emptyList() }
+        }
+
+        return@withContext try {
+            gson.fromJson(jsonToUse, Array<ExternalLiveEvent>::class.java)
+                .filter { it.visible }
+                .map { it.toLiveEvent() }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     private fun isDebugBuild(): Boolean {
