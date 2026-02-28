@@ -240,7 +240,11 @@ class SplashActivity : AppCompatActivity() {
     private suspend fun fetchData(): Boolean {
         return try {
             val configFetched = dataRepository.fetchRemoteConfig()
-            if (!configFetched) return false
+            // If native data_file_url is not configured but event_data_url IS set,
+            // we still have content to show — don't fail the splash.
+            if (!configFetched) {
+                return dataRepository.hasExternalEventUrl()
+            }
             dataRepository.refreshData()
         } catch (e: Exception) {
             false
