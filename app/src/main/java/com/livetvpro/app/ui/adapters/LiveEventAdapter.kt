@@ -36,16 +36,17 @@ class LiveEventAdapter(
     private val onEventInteraction: ((LiveEvent, () -> Unit) -> Boolean)? = null
 ) : RecyclerView.Adapter<LiveEventAdapter.EventViewHolder>() {
 
-    private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()).apply {
+    // Must use Locale.US — Locale.getDefault() can break date parsing on non-English locales
+    private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
-    private val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault()).apply {
+    private val timeFormat = SimpleDateFormat("hh:mm a", Locale.US).apply {
         val symbols = dateFormatSymbols
         symbols.amPmStrings = arrayOf("AM", "PM")
         dateFormatSymbols = symbols
     }
-    private val dateFormat = SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault())
+    private val dateFormat = SimpleDateFormat("EEE, dd MMM yyyy", Locale.US)
 
     companion object {
         const val PAYLOAD_TIMER = "timer"
