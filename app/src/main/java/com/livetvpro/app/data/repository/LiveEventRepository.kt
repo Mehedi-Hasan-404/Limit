@@ -41,7 +41,28 @@ class LiveEventRepository @Inject constructor(
     }
 
     suspend fun getEventCategories(): List<EventCategory> = withContext(Dispatchers.IO) {
-        if (!dataRepository.isDataLoaded()) return@withContext emptyList()
-        dataRepository.getEventCategories()
+        val nativeCategories = if (dataRepository.isDataLoaded())
+            dataRepository.getEventCategories() else emptyList()
+
+        // Derive categories from external API event_cat values.
+        // No logo URL in this format — logoUrl is left blank so the adapter
+        // falls back to ic_launcher_round (already handled in EventCategoryAdapter).
+        val externalEvents = dataRepository.getExternalLiveEvents()
+        val externalCategories = externalEvents
+            ?.map { it.eventCategoryName }
+            ?.filter { it.isNotBlank() }
+            ?.distinct()
+            ?.map { catName ->
+                EventCategory(
+                    id     = catName,   // use name as id for filtering
+                    name   = catName,
+                    slug   = catName.lowercase().replace(" ", "_"),
+                    logoUrl = ""       // blank → adapter shows ic_launcher_round
+                )
+            } ?: emptyList()
+
+        // Merge: native first, then external cats whose id isn't already present
+        val nativeIds = nativeCategories.map { it.id }.toSet()
+        nativeCategories + externalCategories.filter { it.id !in nativeIds }
     }
 }
