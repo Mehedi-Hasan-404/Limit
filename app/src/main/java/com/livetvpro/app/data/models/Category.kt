@@ -137,10 +137,8 @@ enum class EventStatus {
 }
 
 // ──────────────────────────────────────────────────────────────
-// New external event format (fetched from Remote Config key: event_data_url)
-// JSON shape: { id, visible, category, eventName, eventLogo,
-//              teamAName, teamAFlag, teamBName, teamBFlag,
-//              date, time, end_date, end_time, links:[{name,link,scheme,api,tokenApi}] }
+// Old external event format (kept for backward compatibility)
+// Remote Config key: event_data_url (old format)
 // ──────────────────────────────────────────────────────────────
 
 @Parcelize
@@ -205,20 +203,14 @@ data class ExternalLiveEvent(
         )
     }
 
-    /**
-     * date ("dd/MM/yyyy") + time ("HH:mm:ss") are already UTC.
-     * Parse them as UTC and output as ISO-8601 UTC string.
-     */
     private fun combineDateTime(date: String, time: String): String {
         return try {
             val inputFmt = java.text.SimpleDateFormat(
                 "dd/MM/yyyy HH:mm:ss", java.util.Locale.getDefault()
             ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-
             val outputFmt = java.text.SimpleDateFormat(
                 "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()
             ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-
             val parsed = inputFmt.parse("$date $time") ?: return ""
             outputFmt.format(parsed)
         } catch (e: Exception) {
@@ -226,16 +218,112 @@ data class ExternalLiveEvent(
         }
     }
 
-    /**
-     * Maps scheme int → ExoPlayer DRM scheme string.
-     *   0 = ClearKey
-     *   1 = Widevine
-     *   2 = PlayReady
-     */
     private fun Int.toDrmSchemeString(): String? = when (this) {
         0    -> "clearkey"
         1    -> "widevine"
         2    -> "playready"
         else -> null
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+// NEW external event format (Remote Config key: event_data_url)
+// Flat rows grouped by event_id. Each row = one stream/link.
+// Same event_id = same event, different channel_title = different links.
+//
+// DRM: keyid + key → ClearKey. null or "0" = no DRM.
+// event_cat → category name; no logo → fallback to ic_launcher_round.
+// event_time format: "yyyy-MM-dd HH:mm" (UTC)
+// ──────────────────────────────────────────────────────────────
+
+data class NewExternalEventRow(
+    @SerializedName("event_title")   val eventTitle: String = "",
+    @SerializedName("event_id")      val eventId: String = "",
+    @SerializedName("event_cat")     val eventCat: String = "",
+    @SerializedName("event_name")    val eventName: String = "",
+    @SerializedName("event_time")    val eventTime: String = "",
+    @SerializedName("channel_title") val channelTitle: String = "",
+    @SerializedName("stream_url")    val streamUrl: String = "",
+    @SerializedName("keyid")         val keyId: String? = null,
+    @SerializedName("key")           val key: String? = null,
+    @SerializedName("headers")       val headers: String? = null,
+    @SerializedName("referer")       val referer: String? = null,
+    @SerializedName("origin")        val origin: String? = null,
+    @SerializedName("team_a_logo")   val teamALogo: String = "",
+    @SerializedName("team_b_logo")   val teamBLogo: String = ""
+)
+
+/**
+ * Groups a flat list of [NewExternalEventRow] by [NewExternalEventRow.eventId]
+ * and converts each group into a single [LiveEvent] with multiple [LiveEventLink]s.
+ *
+ * - `channel_title` → link quality/name
+ * - `keyid` + `key` → ClearKey DRM ("keyid:key"); null/"0" = no DRM
+ * - `event_cat` → eventCategoryName (used as category chip in UI)
+ * - No category logo in this format → pass empty string;
+ *   the UI should fall back to R.mipmap.ic_launcher_round when it's blank.
+ * - `event_time` ("yyyy-MM-dd HH:mm", UTC) → ISO-8601 UTC
+ */
+fun List<NewExternalEventRow>.toGroupedLiveEvents(): List<LiveEvent> {
+    return groupBy { it.eventId }
+        .map { (_, rows) ->
+            val first = rows.first()
+
+            val links = rows.map { row ->
+                LiveEventLink(
+                    quality       = row.channelTitle,
+                    url           = row.streamUrl,
+                    referer       = row.referer,
+                    origin        = row.origin,
+                    // ClearKey DRM: both keyid and key must be non-null and not "0"
+                    drmScheme     = if (row.hasDrm()) "clearkey" else null,
+                    drmLicenseUrl = if (row.hasDrm()) "${row.keyId}:${row.key}" else null
+                )
+            }
+
+            LiveEvent(
+                id                = first.eventId,
+                category          = first.eventCat,
+                league            = first.eventCat,
+                // No category logo in this format — UI falls back to ic_launcher_round
+                leagueLogo        = "",
+                team1Name         = first.eventTitle,
+                team1Logo         = first.teamALogo,
+                team2Name         = first.eventTitle,
+                team2Logo         = first.teamBLogo,
+                startTime         = first.eventTime.toIso8601Utc(),
+                endTime           = null,
+                isLive            = false,
+                links             = links,
+                title             = first.eventName,
+                description       = "",
+                wrapper           = "",
+                eventCategoryId   = first.eventCat,
+                eventCategoryName = first.eventCat
+            )
+        }
+}
+
+/** True when the row has valid ClearKey DRM credentials. */
+private fun NewExternalEventRow.hasDrm(): Boolean {
+    return !keyId.isNullOrBlank() && keyId != "0"
+        && !key.isNullOrBlank() && key != "0"
+}
+
+/**
+ * Converts "yyyy-MM-dd HH:mm" (UTC) → "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" (ISO-8601 UTC).
+ */
+private fun String.toIso8601Utc(): String {
+    return try {
+        val inputFmt = java.text.SimpleDateFormat(
+            "yyyy-MM-dd HH:mm", java.util.Locale.getDefault()
+        ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+        val outputFmt = java.text.SimpleDateFormat(
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()
+        ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+        val parsed = inputFmt.parse(this) ?: return this
+        outputFmt.format(parsed)
+    } catch (e: Exception) {
+        this
     }
 }
