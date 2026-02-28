@@ -292,7 +292,9 @@ fun List<NewExternalEventRow>.toGroupedLiveEvents(): List<LiveEvent> {
                 team2Name         = first.eventTitle,
                 team2Logo         = first.teamBLogo,
                 startTime         = first.eventTime.toIso8601Utc(),
-                endTime           = null,
+                // API has no end_time — default to startTime + 3 hours so the
+                // event stays in the LIVE window rather than immediately becoming RECENT.
+                endTime           = first.eventTime.toIso8601UtcPlusHours(3),
                 isLive            = false,
                 links             = links,
                 title             = first.eventName,
@@ -323,6 +325,25 @@ private fun String.toIso8601Utc(): String {
         ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
         val parsed = inputFmt.parse(this) ?: return this
         outputFmt.format(parsed)
+    } catch (e: Exception) {
+        this
+    }
+}
+
+/**
+ * Same as [toIso8601Utc] but adds [hours] to the parsed time.
+ * Used to synthesise a default endTime when the API doesn't provide one.
+ */
+private fun String.toIso8601UtcPlusHours(hours: Int): String {
+    return try {
+        val inputFmt = java.text.SimpleDateFormat(
+            "yyyy-MM-dd HH:mm", java.util.Locale.getDefault()
+        ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+        val outputFmt = java.text.SimpleDateFormat(
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()
+        ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+        val parsed = inputFmt.parse(this) ?: return this
+        outputFmt.format(java.util.Date(parsed.time + hours * 3_600_000L))
     } catch (e: Exception) {
         this
     }
