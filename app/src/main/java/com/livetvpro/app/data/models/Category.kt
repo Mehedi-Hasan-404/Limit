@@ -98,7 +98,7 @@ data class LiveEvent(
 
     private fun parseTimestamp(timeString: String): Long {
         return try {
-            java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()).apply {
+            java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
                 timeZone = java.util.TimeZone.getTimeZone("UTC")
             }.parse(timeString)?.time ?: 0L
         } catch (e: Exception) {
@@ -315,14 +315,17 @@ private fun NewExternalEventRow.hasDrm(): Boolean {
 
 /**
  * Converts "yyyy-MM-dd HH:mm" (UTC) → "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" (ISO-8601 UTC).
+ *
+ * IMPORTANT: Must use Locale.US — Locale.getDefault() can silently break date parsing
+ * on non-English devices, causing endTime to be ignored by the adapter.
  */
 private fun String.toIso8601Utc(): String {
     return try {
         val inputFmt = java.text.SimpleDateFormat(
-            "yyyy-MM-dd HH:mm", java.util.Locale.getDefault()
+            "yyyy-MM-dd HH:mm", java.util.Locale.US
         ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
         val outputFmt = java.text.SimpleDateFormat(
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US
         ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
         val parsed = inputFmt.parse(this) ?: return this
         outputFmt.format(parsed)
@@ -338,10 +341,10 @@ private fun String.toIso8601Utc(): String {
 private fun String.toIso8601UtcPlusHours(hours: Int): String {
     return try {
         val inputFmt = java.text.SimpleDateFormat(
-            "yyyy-MM-dd HH:mm", java.util.Locale.getDefault()
+            "yyyy-MM-dd HH:mm", java.util.Locale.US
         ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
         val outputFmt = java.text.SimpleDateFormat(
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US
         ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
         val parsed = inputFmt.parse(this) ?: return this
         outputFmt.format(java.util.Date(parsed.time + hours * 3_600_000L))
