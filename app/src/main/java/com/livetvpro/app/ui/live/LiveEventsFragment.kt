@@ -270,6 +270,7 @@ class LiveEventsFragment : Fragment(), Refreshable {
 
     override fun onResume() {
         super.onResume()
+        viewModel.onResume()  // re-fetches events — critical when returning from splash
         startDynamicUpdates()
         pendingEventAction?.invoke()
         pendingEventAction = null
