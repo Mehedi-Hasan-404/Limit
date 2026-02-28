@@ -250,6 +250,8 @@ data class NewExternalEventRow(
     @SerializedName("headers")       val headers: String? = null,
     @SerializedName("referer")       val referer: String? = null,
     @SerializedName("origin")        val origin: String? = null,
+    @SerializedName("team_a")        val teamA: String = "",
+    @SerializedName("team_b")        val teamB: String = "",
     @SerializedName("team_a_logo")   val teamALogo: String = "",
     @SerializedName("team_b_logo")   val teamBLogo: String = ""
 )
@@ -288,9 +290,9 @@ fun List<NewExternalEventRow>.toGroupedLiveEvents(): List<LiveEvent> {
                 league            = first.eventCat,
                 // No category logo in this format — UI falls back to ic_launcher_round
                 leagueLogo        = "",
-                team1Name         = first.eventTitle,
+                team1Name         = first.teamA.ifBlank { first.eventTitle },
                 team1Logo         = first.teamALogo,
-                team2Name         = first.eventTitle,
+                team2Name         = first.teamB.ifBlank { first.eventTitle },
                 team2Logo         = first.teamBLogo,
                 startTime         = first.eventTime.toIso8601Utc() ?: first.eventTime,
                 // Use real end time from API; fall back to startTime + 3h if missing or conversion fails
