@@ -135,3 +135,92 @@ data class EventCategory(
 enum class EventStatus {
     LIVE, UPCOMING, RECENT
 }
+
+// ──────────────────────────────────────────────────────────────
+// New external event format (fetched from Remote Config key: event_data_url)
+// JSON shape: { id, visible, category, eventName, eventLogo,
+//              teamAName, teamAFlag, teamBName, teamBFlag,
+//              date, time, end_date, end_time, links:[{name,link,scheme,api,tokenApi}] }
+// ──────────────────────────────────────────────────────────────
+
+@Parcelize
+data class ExternalEventLink(
+    @SerializedName("name") val name: String = "",
+    @SerializedName("link") val link: String = "",
+    @SerializedName("scheme") val scheme: Int = 0,
+    @SerializedName("api") val api: String = "",
+    @SerializedName("tokenApi") val tokenApi: String = ""
+) : Parcelable
+
+@Parcelize
+data class ExternalLiveEvent(
+    @SerializedName("id") val id: Int = 0,
+    @SerializedName("visible") val visible: Boolean = true,
+    @SerializedName("category") val category: String = "",
+    @SerializedName("eventName") val eventName: String = "",
+    @SerializedName("eventLogo") val eventLogo: String = "",
+    @SerializedName("teamAName") val teamAName: String = "",
+    @SerializedName("teamAFlag") val teamAFlag: String = "",
+    @SerializedName("teamBName") val teamBName: String = "",
+    @SerializedName("teamBFlag") val teamBFlag: String = "",
+    @SerializedName("date") val date: String = "",
+    @SerializedName("time") val time: String = "",
+    @SerializedName("end_date") val endDate: String = "",
+    @SerializedName("end_time") val endTime: String = "",
+    @SerializedName("links") val links: List<ExternalEventLink> = emptyList()
+) : Parcelable {
+
+    fun toLiveEvent(): LiveEvent {
+        val startIso = combineDateTime(date, time)
+        val endIso = if (endDate.isNotBlank() && endTime.isNotBlank())
+            combineDateTime(endDate, endTime) else null
+
+        val mappedLinks = links.map { extLink ->
+            LiveEventLink(
+                quality = extLink.name,
+                url     = extLink.link,
+                cookie  = buildLinkMeta(extLink)
+            )
+        }
+
+        return LiveEvent(
+            id                = id.toString(),
+            category          = category,
+            league            = category,
+            leagueLogo        = eventLogo,
+            team1Name         = teamAName,
+            team1Logo         = teamAFlag,
+            team2Name         = teamBName,
+            team2Logo         = teamBFlag,
+            startTime         = startIso,
+            endTime           = endIso,
+            isLive            = false,
+            links             = mappedLinks,
+            title             = eventName,
+            description       = "",
+            wrapper           = "",
+            eventCategoryId   = "",
+            eventCategoryName = category
+        )
+    }
+
+    private fun combineDateTime(date: String, time: String): String {
+        return try {
+            val inputFmt = java.text.SimpleDateFormat(
+                "dd/MM/yyyy HH:mm:ss", java.util.Locale.getDefault()
+            ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+            val outputFmt = java.text.SimpleDateFormat(
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()
+            ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+            val parsed = inputFmt.parse("$date $time") ?: return ""
+            outputFmt.format(parsed)
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun buildLinkMeta(link: ExternalEventLink): String? {
+        if (link.scheme == 0 && link.api.isBlank() && link.tokenApi.isBlank()) return null
+        return "scheme=${link.scheme};api=${link.api};tokenApi=${link.tokenApi}"
+    }
+}
