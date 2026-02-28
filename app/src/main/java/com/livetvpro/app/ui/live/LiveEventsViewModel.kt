@@ -43,7 +43,10 @@ class LiveEventsViewModel @Inject constructor(
     }
 
     override fun onResume() {
-
+        // Only reload if first load came back empty (e.g. Remote Config wasn't ready yet)
+        if (_events.value.isNullOrEmpty()) {
+            loadEvents()
+        }
     }
 
     private fun loadEvents() {
