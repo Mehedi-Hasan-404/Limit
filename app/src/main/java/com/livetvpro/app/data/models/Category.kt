@@ -322,7 +322,7 @@ private fun String.toIso8601Utc(): String? {
         val inputFmt = java.text.SimpleDateFormat(
             "yyyy-MM-dd HH:mm", java.util.Locale.US
         ).apply {
-            timeZone = java.util.TimeZone.getTimeZone("UTC")
+            timeZone = java.util.TimeZone.getTimeZone("GMT+1")  // API times are UTC+1
             isLenient = false
         }
         val outputFmt = java.text.SimpleDateFormat(
@@ -345,7 +345,7 @@ private fun String.toIso8601UtcPlusHours(hours: Int): String? {
         val inputFmt = java.text.SimpleDateFormat(
             "yyyy-MM-dd HH:mm", java.util.Locale.US
         ).apply {
-            timeZone = java.util.TimeZone.getTimeZone("UTC")
+            timeZone = java.util.TimeZone.getTimeZone("GMT+1")  // API times are UTC+1
             isLenient = false
         }
         val outputFmt = java.text.SimpleDateFormat(
