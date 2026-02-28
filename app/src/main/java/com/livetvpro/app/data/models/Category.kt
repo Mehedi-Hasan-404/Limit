@@ -292,8 +292,8 @@ fun List<NewExternalEventRow>.toGroupedLiveEvents(): List<LiveEvent> {
                 team1Logo         = first.teamALogo,
                 team2Name         = first.eventTitle,
                 team2Logo         = first.teamBLogo,
-                startTime         = first.eventTime.toIso8601Utc(),
-                // Use real end time from API; fall back to startTime + 3h if missing
+                startTime         = first.eventTime.toIso8601Utc() ?: first.eventTime,
+                // Use real end time from API; fall back to startTime + 3h if missing or conversion fails
                 endTime           = first.eventEndTime?.toIso8601Utc()
                                     ?: first.eventTime.toIso8601UtcPlusHours(3),
                 isLive            = false,
@@ -315,40 +315,45 @@ private fun NewExternalEventRow.hasDrm(): Boolean {
 
 /**
  * Converts "yyyy-MM-dd HH:mm" (UTC) → "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" (ISO-8601 UTC).
- *
- * IMPORTANT: Must use Locale.US — Locale.getDefault() can silently break date parsing
- * on non-English devices, causing endTime to be ignored by the adapter.
+ * Returns null on parse failure instead of the raw string, so callers can detect and handle it.
  */
-private fun String.toIso8601Utc(): String {
+private fun String.toIso8601Utc(): String? {
     return try {
         val inputFmt = java.text.SimpleDateFormat(
             "yyyy-MM-dd HH:mm", java.util.Locale.US
-        ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+        ).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+            isLenient = false
+        }
         val outputFmt = java.text.SimpleDateFormat(
             "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US
         ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-        val parsed = inputFmt.parse(this) ?: return this
+        val parsed = inputFmt.parse(this) ?: return null
         outputFmt.format(parsed)
     } catch (e: Exception) {
-        this
+        null
     }
 }
 
 /**
  * Same as [toIso8601Utc] but adds [hours] to the parsed time.
  * Used to synthesise a default endTime when the API doesn't provide one.
+ * Returns null on parse failure.
  */
-private fun String.toIso8601UtcPlusHours(hours: Int): String {
+private fun String.toIso8601UtcPlusHours(hours: Int): String? {
     return try {
         val inputFmt = java.text.SimpleDateFormat(
             "yyyy-MM-dd HH:mm", java.util.Locale.US
-        ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+        ).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+            isLenient = false
+        }
         val outputFmt = java.text.SimpleDateFormat(
             "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US
         ).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-        val parsed = inputFmt.parse(this) ?: return this
+        val parsed = inputFmt.parse(this) ?: return null
         outputFmt.format(java.util.Date(parsed.time + hours * 3_600_000L))
     } catch (e: Exception) {
-        this
+        null
     }
 }
