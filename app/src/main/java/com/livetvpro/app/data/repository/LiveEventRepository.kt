@@ -14,24 +14,23 @@ class LiveEventRepository @Inject constructor(
     /**
      * Returns live events.
      *
-     * - If Remote Config has `event_data_url` set → fetch from that URL and
-     *   merge with native events (external first, deduped by id).
-     * - Otherwise → native events only (original behaviour, unchanged).
+     * - Always tries the external URL first (Remote Config: event_data_url).
+     * - If external URL is configured → fetch from it, merge with native events
+     *   (external first, deduped by id). Native events included only if loaded.
+     * - If no external URL → fall back to native events only (original behaviour).
+     *
+     * NOTE: External events do NOT require isDataLoaded() — they are independent
+     * of the native data pipeline and will show even if native data is empty.
      */
     suspend fun getLiveEvents(): List<LiveEvent> = withContext(Dispatchers.IO) {
-        val nativeEvents: List<LiveEvent> = if (dataRepository.isDataLoaded()) {
-            dataRepository.getLiveEvents()
-        } else {
-            emptyList()
-        }
-
         val externalEvents: List<LiveEvent>? = dataRepository.getExternalLiveEvents()
 
         return@withContext if (externalEvents == null) {
-            // No external URL configured — original behaviour
-            nativeEvents
+            // No external URL configured — use native only (original behaviour)
+            if (dataRepository.isDataLoaded()) dataRepository.getLiveEvents() else emptyList()
         } else {
-            // Merge: external first, then native events not already present
+            // External URL configured — merge external + native (if available)
+            val nativeEvents = if (dataRepository.isDataLoaded()) dataRepository.getLiveEvents() else emptyList()
             val externalIds = externalEvents.map { it.id }.toSet()
             externalEvents + nativeEvents.filter { it.id !in externalIds }
         }
