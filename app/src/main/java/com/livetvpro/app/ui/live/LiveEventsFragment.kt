@@ -189,6 +189,7 @@ class LiveEventsFragment : Fragment(), Refreshable {
                 events = emptyList(),
                 preferencesManager = preferencesManager,
                 onEventInteraction = { event, playerAction ->
+                    // Store action so it can be re-fired after returning from a redirect
                     pendingEventAction = playerAction
                     val redirected = cooldownManager.tryFire(ListenerConfig.PAGE_LIVE_EVENTS, event.id) {
                         listenerManager.onPageInteraction(
@@ -196,8 +197,9 @@ class LiveEventsFragment : Fragment(), Refreshable {
                             uniqueId = event.id
                         )
                     }
+                    // Do NOT call playerAction() here — the adapter calls it when redirected==false.
+                    // Calling it here too was the cause of the double dialog.
                     if (!redirected) {
-                        pendingEventAction?.invoke()
                         pendingEventAction = null
                     }
                     redirected
