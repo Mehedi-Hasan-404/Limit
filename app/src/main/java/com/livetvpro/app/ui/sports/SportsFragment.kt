@@ -82,8 +82,6 @@ class SportsViewModel @Inject constructor(
     }
 
     override fun onResume() {
-        // Do nothing - don't reload data when resuming
-        // Data is already loaded and cached in memory
     }
 
     fun searchSports(query: String) {
