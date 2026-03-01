@@ -64,6 +64,9 @@ class SportsViewModel @Inject constructor(
         }
     }
 
+    override fun onResume() {
+    }
+
     override fun loadData() {
         viewModelScope.launch {
             repository.getSports()
@@ -179,7 +182,6 @@ class SportsFragment : Fragment(), SearchableFragment, Refreshable {
 
     override fun onResume() {
         super.onResume()
-        viewModel.onResume()
         pendingChannelAction?.invoke()
         pendingChannelAction = null
     }
