@@ -528,25 +528,16 @@ class MainActivity : AppCompatActivity() {
         val navigateTopLevel = { destinationId: Int ->
             val currentId = navController.currentDestination?.id ?: graphStartDestinationId
             if (currentId != destinationId) {
-                if (destinationId == R.id.homeFragment &&
-                    (currentId == R.id.categoryChannelsFragment || currentId == R.id.homeFragment)) {
+                if (currentId == R.id.categoryChannelsFragment || currentId == R.id.homeFragment) {
                     navController.popBackStack(R.id.homeFragment, false)
-                } else if (currentId == R.id.categoryChannelsFragment) {
-                    navController.popBackStack(R.id.homeFragment, false)
-                    val navOptions = NavOptions.Builder()
-                        .setPopUpTo(R.id.homeFragment, false, saveState = true)
-                        .setLaunchSingleTop(true)
-                        .setRestoreState(true)
-                        .build()
-                    navController.navigate(destinationId, null, navOptions)
-                } else {
-                    val navOptions = NavOptions.Builder()
-                        .setPopUpTo(currentId, true, saveState = true)
-                        .setLaunchSingleTop(true)
-                        .setRestoreState(true)
-                        .build()
-                    navController.navigate(destinationId, null, navOptions)
+                    if (destinationId == R.id.homeFragment) return@let
                 }
+                val navOptions = NavOptions.Builder()
+                    .setPopUpTo(navController.graph.startDestinationId, false, saveState = true)
+                    .setLaunchSingleTop(true)
+                    .setRestoreState(true)
+                    .build()
+                navController.navigate(destinationId, null, navOptions)
             }
         }
 
