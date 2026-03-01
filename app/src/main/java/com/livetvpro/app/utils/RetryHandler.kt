@@ -48,6 +48,7 @@ abstract class RetryViewModel : ViewModel(), IRetryViewModel {
     private val _isEmpty = MutableLiveData<Boolean>(false)
     override val isEmpty: LiveData<Boolean> = _isEmpty
     private var hasLoadedOnce = false
+    private var isRefreshing = false
     protected fun startLoading() {
         _isLoading.value = true
         _error.value = null
@@ -56,7 +57,7 @@ abstract class RetryViewModel : ViewModel(), IRetryViewModel {
     protected fun finishLoading(dataIsEmpty: Boolean, error: Throwable? = null) {
         _isLoading.value = false
         if (error != null) {
-            if (!hasLoadedOnce) {
+            if (!hasLoadedOnce || isRefreshing) {
                 _error.value = ErrorMessageConverter.getShortErrorMessage(error)
             }
         } else {
@@ -64,9 +65,11 @@ abstract class RetryViewModel : ViewModel(), IRetryViewModel {
             _error.value = null
             _isEmpty.value = dataIsEmpty
         }
+        isRefreshing = false
     }
     protected fun resetForRetry() {
         hasLoadedOnce = false
+        isRefreshing = false
         _error.value = null
         _isEmpty.value = false
     }
@@ -88,6 +91,7 @@ abstract class RetryViewModel : ViewModel(), IRetryViewModel {
         loadData()
     }
     override fun refresh() {
+        isRefreshing = true
         loadData()
     }
     override fun onResume() {
@@ -107,6 +111,7 @@ abstract class AndroidRetryViewModel(application: Application) : AndroidViewMode
     private val _isEmpty = MutableLiveData<Boolean>(false)
     override val isEmpty: LiveData<Boolean> = _isEmpty
     private var hasLoadedOnce = false
+    private var isRefreshing = false
     protected fun startLoading() {
         _isLoading.value = true
         _error.value = null
@@ -115,7 +120,7 @@ abstract class AndroidRetryViewModel(application: Application) : AndroidViewMode
     protected fun finishLoading(dataIsEmpty: Boolean, error: Throwable? = null) {
         _isLoading.value = false
         if (error != null) {
-            if (!hasLoadedOnce) {
+            if (!hasLoadedOnce || isRefreshing) {
                 _error.value = ErrorMessageConverter.getShortErrorMessage(error)
             }
         } else {
@@ -123,9 +128,11 @@ abstract class AndroidRetryViewModel(application: Application) : AndroidViewMode
             _error.value = null
             _isEmpty.value = dataIsEmpty
         }
+        isRefreshing = false
     }
     protected fun resetForRetry() {
         hasLoadedOnce = false
+        isRefreshing = false
         _error.value = null
         _isEmpty.value = false
     }
@@ -147,6 +154,7 @@ abstract class AndroidRetryViewModel(application: Application) : AndroidViewMode
         loadData()
     }
     override fun refresh() {
+        isRefreshing = true
         loadData()
     }
     override fun onResume() {
