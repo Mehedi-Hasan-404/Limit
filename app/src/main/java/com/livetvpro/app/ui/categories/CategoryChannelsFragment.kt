@@ -348,9 +348,12 @@ class CategoryChannelsFragment : Fragment(), SearchableFragment, Refreshable {
         }
     }
 
+    private var suppressTabListener = false
+
     private fun setupTabLayout() {
         binding.tabLayoutGroups.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
+                if (suppressTabListener) return
                 tab?.text?.toString()?.let { groupName -> viewModel.selectGroup(groupName) }
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
@@ -359,11 +362,15 @@ class CategoryChannelsFragment : Fragment(), SearchableFragment, Refreshable {
     }
 
     private fun updateTabs(groups: List<String>) {
+        suppressTabListener = true
         binding.tabLayoutGroups.removeAllTabs()
         groups.forEach { groupName ->
             binding.tabLayoutGroups.addTab(binding.tabLayoutGroups.newTab().setText(groupName))
         }
-        if (binding.tabLayoutGroups.tabCount > 0) binding.tabLayoutGroups.getTabAt(0)?.select()
+        val currentGroup = viewModel.currentGroup.value ?: "All"
+        val restoreIndex = groups.indexOf(currentGroup).coerceAtLeast(0)
+        if (binding.tabLayoutGroups.tabCount > 0) binding.tabLayoutGroups.getTabAt(restoreIndex)?.select()
+        suppressTabListener = false
         binding.tabLayoutGroups.post {
             for (i in 0 until binding.tabLayoutGroups.tabCount) {
                 val tab = binding.tabLayoutGroups.getTabAt(i)
@@ -398,6 +405,19 @@ class CategoryChannelsFragment : Fragment(), SearchableFragment, Refreshable {
         super.onResume()
         pendingChannelAction?.invoke()
         pendingChannelAction = null
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val layoutManager = _binding?.recyclerViewChannels?.layoutManager as? GridLayoutManager
+        layoutManager?.onSaveInstanceState()?.let { outState.putParcelable("rv_channels_state", it) }
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        savedInstanceState?.getParcelable<android.os.Parcelable>("rv_channels_state")?.let {
+            binding.recyclerViewChannels.layoutManager?.onRestoreInstanceState(it)
+        }
     }
 
     override fun onDestroyView() {
