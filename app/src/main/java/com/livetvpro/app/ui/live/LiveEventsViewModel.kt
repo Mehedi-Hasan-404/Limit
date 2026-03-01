@@ -45,10 +45,9 @@ class LiveEventsViewModel @Inject constructor(
     }
 
     override fun onResume() {
-        // Only reload if first load came back empty (e.g. Remote Config wasn't ready yet)
-        if (_events.value.isNullOrEmpty()) {
-            loadEvents()
-        }
+        // Do nothing - don't reload data when resuming
+        // Data is already loaded and cached in memory
+        // The 10s dynamic update timer in the fragment handles refreshing event statuses
     }
 
     private fun loadEvents() {
