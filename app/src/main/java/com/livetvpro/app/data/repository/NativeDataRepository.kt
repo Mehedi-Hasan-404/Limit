@@ -220,6 +220,20 @@ class NativeDataRepository @Inject constructor(
     suspend fun refreshData(): Boolean = withContext(Dispatchers.IO) {
         refreshMutex.withLock {
             try {
+                if (externalEventDataUrl.isNotBlank()) {
+                    try {
+                        val request = Request.Builder().url(externalEventDataUrl).build()
+                        httpClient.newCall(request).execute().use { response ->
+                            if (response.isSuccessful) {
+                                val body = response.body?.string()
+                                if (!body.isNullOrBlank()) {
+                                    inMemoryExternalEventsJson = body
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
                 if (!checkIntegrityAndEnabled()) {
                     return@withContext restoreFromCache()
                 }
@@ -338,6 +352,16 @@ class NativeDataRepository @Inject constructor(
      */
     suspend fun getExternalLiveEvents(): List<LiveEvent>? = withContext(Dispatchers.IO) {
         if (externalEventDataUrl.isBlank()) return@withContext null
+
+        if (inMemoryExternalEventsJson.isNotBlank()) {
+            return@withContext try {
+                gson.fromJson(inMemoryExternalEventsJson, Array<NewExternalEventRow>::class.java)
+                    .toList()
+                    .toGroupedLiveEvents()
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
 
         val jsonToUse: String = try {
             val request = Request.Builder().url(externalEventDataUrl).build()
