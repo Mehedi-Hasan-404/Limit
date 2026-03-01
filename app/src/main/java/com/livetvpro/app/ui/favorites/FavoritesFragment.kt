@@ -167,6 +167,19 @@ class FavoritesFragment : Fragment() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val layoutManager = _binding?.recyclerViewFavorites?.layoutManager as? GridLayoutManager
+        layoutManager?.onSaveInstanceState()?.let { outState.putParcelable("rv_fav_state", it) }
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        savedInstanceState?.getParcelable<android.os.Parcelable>("rv_fav_state")?.let {
+            binding.recyclerViewFavorites.layoutManager?.onRestoreInstanceState(it)
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
