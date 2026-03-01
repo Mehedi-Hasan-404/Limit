@@ -45,9 +45,6 @@ class LiveEventsViewModel @Inject constructor(
     }
 
     override fun onResume() {
-        // Do nothing - don't reload data when resuming
-        // Data is already loaded and cached in memory
-        // The 10s dynamic update timer in the fragment handles refreshing event statuses
     }
 
     private fun loadEvents() {
