@@ -31,8 +31,17 @@ class FootballScoreFragment : Fragment() {
         val url = listenerManager.getFootLiveUrl()
         if (url.isNotBlank()) {
             setupWebView()
-            binding.webView.loadUrl(url)
+            if (savedInstanceState != null) {
+                binding.webView.restoreState(savedInstanceState)
+            } else {
+                binding.webView.loadUrl(url)
+            }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        binding.webView.saveState(outState)
     }
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
