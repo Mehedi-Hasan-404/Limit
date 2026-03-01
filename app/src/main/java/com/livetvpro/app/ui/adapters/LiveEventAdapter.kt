@@ -179,7 +179,9 @@ class LiveEventAdapter(
             when {
                 (currentTime >= startTimeMillis && currentTime <= endTimeMillis) || event.isLive -> {
                     binding.liveAnimation.visibility = View.VISIBLE
-                    binding.liveAnimation.playAnimation()
+                    if (!binding.liveAnimation.isAnimating) {
+                        binding.liveAnimation.playAnimation()
+                    }
 
                     binding.matchTime.visibility = View.GONE
                     binding.matchDate.visibility = View.GONE
