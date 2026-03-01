@@ -85,6 +85,10 @@ class LiveEventsFragment : Fragment(), Refreshable {
         viewModel.loadEventCategories()
         if (viewModel.filteredEvents.value == null) {
             viewModel.filterEvents(null, "evt_cat_all")
+        } else {
+            selectedStatusFilter = viewModel.pendingStatusFilter
+            selectedCategoryId = viewModel.pendingCategoryId
+            restoreChipState()
         }
         startDynamicUpdates()
         observeInitialFocus()
@@ -157,11 +161,6 @@ class LiveEventsFragment : Fragment(), Refreshable {
     private fun startDynamicUpdates() {
         updateHandler.removeCallbacks(updateRunnable)
         updateHandler.post(updateRunnable)
-    }
-
-    private fun resumeDynamicUpdates() {
-        updateHandler.removeCallbacks(updateRunnable)
-        updateHandler.postDelayed(updateRunnable, 10_000)
     }
 
     private fun stopDynamicUpdates() {
@@ -275,9 +274,39 @@ class LiveEventsFragment : Fragment(), Refreshable {
         }
     }
 
+    private fun restoreChipState() {
+        val chipToCheck = when (selectedStatusFilter) {
+            EventStatus.LIVE -> binding.chipLive
+            EventStatus.UPCOMING -> binding.chipUpcoming
+            EventStatus.RECENT -> binding.chipRecent
+            null -> binding.chipAll
+        }
+        listOf(binding.chipAll, binding.chipLive, binding.chipUpcoming, binding.chipRecent).forEach {
+            it.isChecked = (it == chipToCheck)
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val rvState = _binding?.recyclerViewEvents?.layoutManager?.onSaveInstanceState()
+        val catState = _binding?.categoryRecycler?.layoutManager?.onSaveInstanceState()
+        rvState?.let { outState.putParcelable("rv_events_state", it) }
+        catState?.let { outState.putParcelable("rv_cat_state", it) }
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        savedInstanceState?.getParcelable<android.os.Parcelable>("rv_events_state")?.let {
+            binding.recyclerViewEvents.layoutManager?.onRestoreInstanceState(it)
+        }
+        savedInstanceState?.getParcelable<android.os.Parcelable>("rv_cat_state")?.let {
+            binding.categoryRecycler.layoutManager?.onRestoreInstanceState(it)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
-        resumeDynamicUpdates()
+        startDynamicUpdates()
         pendingEventAction = null
     }
 
