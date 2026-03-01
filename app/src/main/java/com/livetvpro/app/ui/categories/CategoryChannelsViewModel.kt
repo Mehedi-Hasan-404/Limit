@@ -88,11 +88,7 @@ class CategoryChannelsViewModel @Inject constructor(
         lastLoadedCategoryId?.let { loadChannels(it) }
     }
 
-    // FIXED: Override onResume() instead to prevent auto-reload when coming back from player
-    // This prevents unnecessary reloading that would lose your scroll position and reload data
     override fun onResume() {
-        // Do nothing - don't reload data when resuming
-        // Data is already loaded and cached in memory
     }
 
     fun loadChannels(categoryId: String) {
