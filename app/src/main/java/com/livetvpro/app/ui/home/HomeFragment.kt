@@ -57,6 +57,19 @@ class HomeFragment : Fragment(), SearchableFragment, Refreshable {
     override fun onResume() {
         super.onResume()
     }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val layoutManager = _binding?.recyclerViewCategories?.layoutManager as? GridLayoutManager
+        layoutManager?.onSaveInstanceState()?.let { outState.putParcelable("rv_home_state", it) }
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        savedInstanceState?.getParcelable<android.os.Parcelable>("rv_home_state")?.let {
+            binding.recyclerViewCategories.layoutManager?.onRestoreInstanceState(it)
+        }
+    }
     private fun setupRecyclerView() {
         categoryAdapter = CategoryAdapter { category ->
             val bundle = bundleOf(
