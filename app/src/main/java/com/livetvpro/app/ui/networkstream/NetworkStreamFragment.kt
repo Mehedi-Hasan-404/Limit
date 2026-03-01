@@ -11,6 +11,7 @@ import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import com.livetvpro.app.R
 import com.livetvpro.app.databinding.FragmentNetworkStreamBinding
 import com.livetvpro.app.ui.player.PlayerActivity
@@ -22,6 +23,7 @@ import javax.inject.Inject
 class NetworkStreamFragment : Fragment() {
     private var _binding: FragmentNetworkStreamBinding? = null
     private val binding get() = _binding!!
+    private val viewModel: NetworkStreamViewModel by viewModels()
     @Inject
     lateinit var preferencesManager: com.livetvpro.app.data.local.PreferencesManager
     private val userAgentOptions = listOf(
@@ -50,13 +52,40 @@ class NetworkStreamFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupDropdowns()
+        restoreFieldState()
         setupCustomUserAgentVisibility()
         setupPasteIcons()
+        setupFieldStateSaving()
         setupPlayButton()
         if (DeviceUtils.isTvDevice) {
             binding.etStreamUrl.requestFocus()
         }
     }
+    private fun restoreFieldState() {
+        binding.etStreamUrl.setText(viewModel.streamUrl)
+        binding.etCookie.setText(viewModel.cookie)
+        binding.etReferer.setText(viewModel.referer)
+        binding.etOrigin.setText(viewModel.origin)
+        binding.etDrmLicense.setText(viewModel.drmLicense)
+        binding.etCustomUserAgent.setText(viewModel.customUserAgent)
+        binding.actvUserAgent.setText(viewModel.selectedUserAgent, false)
+        binding.actvDrmScheme.setText(viewModel.selectedDrmScheme, false)
+        if (viewModel.selectedUserAgent == "Custom") {
+            binding.tilCustomUserAgent.visibility = View.VISIBLE
+        }
+    }
+
+    private fun setupFieldStateSaving() {
+        binding.etStreamUrl.doOnTextChanged { text, _, _, _ -> viewModel.streamUrl = text?.toString() ?: "" }
+        binding.etCookie.doOnTextChanged { text, _, _, _ -> viewModel.cookie = text?.toString() ?: "" }
+        binding.etReferer.doOnTextChanged { text, _, _, _ -> viewModel.referer = text?.toString() ?: "" }
+        binding.etOrigin.doOnTextChanged { text, _, _, _ -> viewModel.origin = text?.toString() ?: "" }
+        binding.etDrmLicense.doOnTextChanged { text, _, _, _ -> viewModel.drmLicense = text?.toString() ?: "" }
+        binding.etCustomUserAgent.doOnTextChanged { text, _, _, _ -> viewModel.customUserAgent = text?.toString() ?: "" }
+        binding.actvUserAgent.doOnTextChanged { text, _, _, _ -> viewModel.selectedUserAgent = text?.toString() ?: "Default" }
+        binding.actvDrmScheme.doOnTextChanged { text, _, _, _ -> viewModel.selectedDrmScheme = text?.toString() ?: "clearkey" }
+    }
+
     private fun setupPasteIcons() {
         listOf(
             binding.tilStreamUrl       to binding.etStreamUrl,
