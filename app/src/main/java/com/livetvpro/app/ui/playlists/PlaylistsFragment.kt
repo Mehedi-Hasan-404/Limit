@@ -393,6 +393,21 @@ class PlaylistsFragment : Fragment() {
         dialog.getButton(DialogInterface.BUTTON_POSITIVE)?.requestFocus()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val layoutManager = _binding?.recyclerViewPlaylists?.layoutManager as? LinearLayoutManager
+        layoutManager?.onSaveInstanceState()?.let { outState.putParcelable("rv_playlists_state", it) }
+        outState.putBoolean("fab_expanded", isFabExpanded)
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        savedInstanceState?.getParcelable<android.os.Parcelable>("rv_playlists_state")?.let {
+            binding.recyclerViewPlaylists.layoutManager?.onRestoreInstanceState(it)
+        }
+        if (savedInstanceState?.getBoolean("fab_expanded") == true) expandFab()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
