@@ -158,11 +158,9 @@ class NativeDataRepository @Inject constructor(
     private val refreshMutex = Mutex()
     private val remoteConfig = Firebase.remoteConfig
 
-    // In-memory only cache — lives only while the process is alive.
     private var inMemoryJson: String = ""
     private var inMemoryConfigUrl: String = ""
 
-    // ── External event data (new API format, Remote Config key: event_data_url) ──
     private var externalEventDataUrl: String = ""
     private var inMemoryExternalEventsJson: String = ""
 
@@ -191,7 +189,6 @@ class NativeDataRepository @Inject constructor(
             val configKey = getRemoteConfigKey()
             val configUrl = remoteConfig.getString(configKey)
 
-            // Read optional external event data URL
             val eventUrl = remoteConfig.getString(REMOTE_CONFIG_EVENT_DATA_URL)
             if (eventUrl.isNotEmpty()) {
                 externalEventDataUrl = eventUrl
@@ -335,21 +332,8 @@ class NativeDataRepository @Inject constructor(
 
     fun isDataLoaded(): Boolean = checkDataLoaded()
 
-    // ──────────────────────────────────────────────────────────────
-    // External event API (new flat-row format, grouped by event_id)
-    // Remote Config key: event_data_url
-    // ──────────────────────────────────────────────────────────────
-
     fun hasExternalEventUrl(): Boolean = externalEventDataUrl.isNotEmpty()
 
-    /**
-     * Fetches the flat event rows from [externalEventDataUrl], groups them by
-     * [NewExternalEventRow.eventId] and returns one [LiveEvent] per unique event,
-     * each with multiple [LiveEventLink]s (one per channel/stream row).
-     *
-     * Falls back to in-memory cached JSON on network failure.
-     * Returns null when no external URL is configured → caller uses native events.
-     */
     suspend fun getExternalLiveEvents(): List<LiveEvent>? = withContext(Dispatchers.IO) {
         if (externalEventDataUrl.isBlank()) return@withContext null
 
