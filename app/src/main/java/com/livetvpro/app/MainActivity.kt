@@ -525,12 +525,12 @@ class MainActivity : AppCompatActivity() {
         val topLevelDestinations = setOf(R.id.homeFragment, R.id.liveEventsFragment, R.id.sportsFragment)
         val graphStartDestinationId = navController.graph.startDestinationId
 
-        val navigateTopLevel = { destinationId: Int ->
+        val navigateTopLevel = fun(destinationId: Int) {
             val currentId = navController.currentDestination?.id ?: graphStartDestinationId
             if (currentId != destinationId) {
                 if (currentId == R.id.categoryChannelsFragment || currentId == R.id.homeFragment) {
                     navController.popBackStack(R.id.homeFragment, false)
-                    if (destinationId == R.id.homeFragment) return@navigateTopLevel
+                    if (destinationId == R.id.homeFragment) return
                 }
                 val navOptions = NavOptions.Builder()
                     .setPopUpTo(navController.graph.startDestinationId, false, saveState = true)
