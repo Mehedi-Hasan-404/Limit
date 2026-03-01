@@ -159,6 +159,11 @@ class LiveEventsFragment : Fragment(), Refreshable {
         updateHandler.post(updateRunnable)
     }
 
+    private fun resumeDynamicUpdates() {
+        updateHandler.removeCallbacks(updateRunnable)
+        updateHandler.postDelayed(updateRunnable, 10_000)
+    }
+
     private fun stopDynamicUpdates() {
         updateHandler.removeCallbacks(updateRunnable)
     }
@@ -272,7 +277,7 @@ class LiveEventsFragment : Fragment(), Refreshable {
 
     override fun onResume() {
         super.onResume()
-        startDynamicUpdates()
+        resumeDynamicUpdates()
         pendingEventAction = null
     }
 
