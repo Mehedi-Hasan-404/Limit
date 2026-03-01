@@ -530,7 +530,7 @@ class MainActivity : AppCompatActivity() {
             if (currentId != destinationId) {
                 if (currentId == R.id.categoryChannelsFragment || currentId == R.id.homeFragment) {
                     navController.popBackStack(R.id.homeFragment, false)
-                    if (destinationId == R.id.homeFragment) return@let
+                    if (destinationId == R.id.homeFragment) return@navigateTopLevel
                 }
                 val navOptions = NavOptions.Builder()
                     .setPopUpTo(navController.graph.startDestinationId, false, saveState = true)
