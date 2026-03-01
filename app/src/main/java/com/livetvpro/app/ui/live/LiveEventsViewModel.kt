@@ -27,8 +27,10 @@ class LiveEventsViewModel @Inject constructor(
     private val _filteredEvents = MutableLiveData<List<LiveEvent>>()
     val filteredEvents: LiveData<List<LiveEvent>> = _filteredEvents
 
-    private var pendingStatusFilter: EventStatus? = null
-    private var pendingCategoryId: String = "evt_cat_all"
+    var pendingStatusFilter: EventStatus? = null
+        private set
+    var pendingCategoryId: String = "evt_cat_all"
+        private set
 
     private val sdf = java.text.SimpleDateFormat(
         "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()
