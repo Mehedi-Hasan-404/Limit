@@ -64,9 +64,6 @@ class SportsViewModel @Inject constructor(
         }
     }
 
-    override fun onResume() {
-    }
-
     override fun loadData() {
         viewModelScope.launch {
             repository.getSports()
@@ -184,6 +181,19 @@ class SportsFragment : Fragment(), SearchableFragment, Refreshable {
         super.onResume()
         pendingChannelAction?.invoke()
         pendingChannelAction = null
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val layoutManager = _binding?.recyclerViewChannels?.layoutManager as? GridLayoutManager
+        layoutManager?.onSaveInstanceState()?.let { outState.putParcelable("rv_sports_state", it) }
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        savedInstanceState?.getParcelable<android.os.Parcelable>("rv_sports_state")?.let {
+            binding.recyclerViewChannels.layoutManager?.onRestoreInstanceState(it)
+        }
     }
 
     private fun setupRecyclerView() {
